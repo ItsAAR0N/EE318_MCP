@@ -36,8 +36,11 @@ void main(void)
 {
     WDTCTL = WDTPW | WDTHOLD; // Stop WDT
     
-    P1DIR |= BIT7; // P1.7 output
-    P1SEL0 |= BIT7; // P1.7 options select
+    P1DIR |= 0x80; // P1.7 output
+    P1SEL0 |= 0x80; // P1.7 options select
+    
+    P4DIR |= 0x01; // Indicator LED
+    P4OUT |= 0x01; 
     
     // Configure Pin for ADC
     GPIO_setAsPeripheralModuleFunctionOutputPin(GPIO_PORT_P8,GPIO_PIN1,GPIO_PRIMARY_MODULE_FUNCTION);
@@ -62,8 +65,7 @@ void main(void)
     ADCMCTL0 |= ADCINCH_9; // A9 ADC input select; Vref = AVCC   
     ADCIFG &= ~0x01;  //Clear interrupt flag  
     ADCIE |= ADCIE0;  //Enable ADC conversion complete interrupt
-
-
+ 
     __enable_interrupt();
       
     while(1) {  
