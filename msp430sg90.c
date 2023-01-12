@@ -36,8 +36,8 @@ void main(void)
 {
     WDTCTL = WDTPW | WDTHOLD; // Stop WDT
     
-    P1DIR |= BIT7; // P1.6 and P1.7 output
-    P1SEL0 |= BIT7; // P1.6 and P1.7 options select
+    P1DIR |= BIT7; // P1.7 output
+    P1SEL0 |= BIT7; // P1.7 options select
     
     // Configure Pin for ADC
     GPIO_setAsPeripheralModuleFunctionOutputPin(GPIO_PORT_P8,GPIO_PIN1,GPIO_PRIMARY_MODULE_FUNCTION);
