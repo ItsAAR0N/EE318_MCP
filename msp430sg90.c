@@ -70,10 +70,11 @@ void main(void)
       
     while(1) {  
       ADCCTL0 |= 0x03;          // Sampling and conversion start
-      while(ADCCTL0 & ADCBUSY);
+      while(ADCCTL0 & ADCBUSY) {
       int memval = rate_;
       TA0CCR1 = memval;     
       __delay_cycles(10000);
+      }
     }  
     // __bis_SR_register(LPM0_bits); // Enter LPM0
 }
