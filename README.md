@@ -1,2 +1,2 @@
-# EE318 Project - Double arm SCARA Plotter
+# Double Arm SCARA Plotter 
 
