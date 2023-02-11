@@ -15,20 +15,20 @@ Aaron Shek, @ 2023 University of Strathclyde
 
 void main(void)
 {
-  WDTCTL = WDTPW + WDTHOLD;
+  WDTCTL = WDTPW | WDTHOLD;
   PM5CTL0 &= ~LOCKLPM5;
 
   // Configure GPIOs
-  P1DIR |= STEP_PIN + DIR_PIN;
+  P1DIR |= STEP_PIN | DIR_PIN;
   P1OUT &= ~STEP_PIN;
   P1OUT |= DIR_PIN;
   P4DIR |= LED_PIN;
 
   // Configure Timer_A
-  TA0CCR0 = 1000;
+  TA0CCR0 = 1000; // Period of 1000 us
   TA0CCR1 = 500;
   TA0CCTL1 = OUTMOD_7;
-  TA0CTL = TASSEL_2 + MC_1 + TACLR;
+  TA0CTL = TASSEL_2 | MC_1 | TACLR;
 
   // Rotate continuously in full stepping
   while (1) {
