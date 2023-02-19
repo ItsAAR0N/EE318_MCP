@@ -82,7 +82,7 @@ void stepMotor_(int n_Steps, char dir)
       GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN6); // Set anti-clockwise direction
   }
   GPIO_setOutputHighOnPin(GPIO_PORT_P1, GPIO_PIN7);
-  __delay_cycles(10);
+  __delay_cycles(1000);
   GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN7);
   i++;
   }
