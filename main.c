@@ -80,15 +80,11 @@ void main(void)
     // 200 => 360 degrees, 100 => 180 degrees, 50 => 90 degrees, 25 => 45 degrees, ...
     // True => Clockwise, False => anticlockwise
     // Control examples
-    if (rate_ < 2048) {
-      dir = 1; // Clockwise
-    } else {
-      dir = -1; // Anti-clockwise
-    }
+
     //stepMotor_(dir);
-    
+    stepMotor_(200,true); // 180 degrees
     __delay_cycles(3000000);
-    stepMotor_(100,true); // 180 degrees
+    stepMotor_(100,false); // 180 degrees
     __delay_cycles(3000000);
     stepMotor_(50,true); // 90 degrees
     __delay_cycles(3000000);

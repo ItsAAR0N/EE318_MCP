@@ -1,7 +1,7 @@
-// Main header file 
+// Motor header file 
 
 /********************************
-header.h
+motor.h
 Default Template file for testing purposes
 Aaron Shek, @ 2023 University of Strathclyde
 *********************************/
