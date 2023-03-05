@@ -5,24 +5,31 @@ motor.c
 Motor driver 
 Aaron Shek, @ 2023 University of Strathclyde
 *********************************/
-
-#include "motor.h"
 #include <msp430.h>
-
 #include <driverlib.h>
+#include <stdio.h>
+#include <math.h>
+#include "motor.h"
 
 // Define pins
 #define STEP_PIN BIT7 // 1000000
 #define DIR_PIN BIT6 // 0100000
 #define LED_PIN BIT0 // 0000000
+#define STEP_PIN_2 BIT4 // 0001000
+#define DIR_PIN_2 BIT3 // 0000100
+
+const int accel_Val = 4000;
+unsigned long difference = 0;
 
 void initialiseGPIOs_()
 {
   // Configure Stepper control pins to A4988 interface  
-  P1DIR |= STEP_PIN | DIR_PIN;
+  P1DIR |= STEP_PIN | DIR_PIN | STEP_PIN_2 | DIR_PIN_2;
   P1OUT &= ~STEP_PIN; 
+  P1OUT &= ~STEP_PIN_2;
   //P1OUT |= DIR_PIN;
-  GPIO_setOutputHighOnPin(GPIO_PORT_P1, GPIO_PIN6);    
+  GPIO_setOutputHighOnPin(GPIO_PORT_P1, GPIO_PIN6); // Clockwise M1
+  GPIO_setOutputHighOnPin(GPIO_PORT_P1, GPIO_PIN3);
   // Indiactor LEDs
   P4DIR |= LED_PIN; 
   // Set buttons using std. lib.
@@ -64,27 +71,52 @@ void initialiseADCpot_()
   ADCIE |= ADCIE0;  //Enable ADC conversion complete interrupt
 }
 
-void readValue_pot_()
+void readValue_pot_(int rate_)
 {
-  // Calibration procedure
-
+  int currentVal = rate_;
 }
 
-void stepMotor_(int n_Steps, char dir)
+void delay_us(unsigned long delay) 
+{ //  I have no idea if this is us or ms lol
+  while (delay--) {
+    __delay_cycles(1);
+  }
+} 
+
+void stepMotor_(int n_Steps, bool dir, int motor_Num)
 { 
   int i = 0;
-  while(i < n_Steps) {
-  if (dir == true) {
-      // P1OUT |= DIR_PIN; // Set direction pin
-      GPIO_setOutputHighOnPin(GPIO_PORT_P1, GPIO_PIN6); // Set clockwise direction
+  int DIRpin, STEPpin;
+  
+  float time_del = 0.003; // time delay
+  int rounded_time_del = 0;
+  
+  if (motor_Num == 1) {
+    DIRpin = GPIO_PIN6; // Stepper 1 DIR pin
+    STEPpin = GPIO_PIN7; // Stepper 1 STEP pin
+  } else if (motor_Num == 2) {
+    DIRpin = GPIO_PIN3; // Stepper 2 DIR pin
+    STEPpin = GPIO_PIN4; // Stepper 2 STEP pin
   } else {
-      //P1OUT &= ~DIR_PIN; // Set direction pin
-      GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN6); // Set anti-clockwise direction
+    return; 
   }
-  GPIO_setOutputHighOnPin(GPIO_PORT_P1, GPIO_PIN7);
-  __delay_cycles(1000);
-  GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN7);
-  i++;
+  
+  while(i < n_Steps) {
+    if (i < n_Steps/2) { // One half accel, the other half decel
+      time_del = pos_Accel_(time_del); // Take in initial time delay 
+    } else {
+      time_del = neg_Accel_(time_del); 
+    }
+    rounded_time_del = round(time_del*500000); 
+    if (dir == true) {
+        GPIO_setOutputHighOnPin(GPIO_PORT_P1, DIRpin); // Set anti-clockwise direction
+    } else {
+        GPIO_setOutputLowOnPin(GPIO_PORT_P1, DIRpin); // Set false-clockwise direction
+    }
+    GPIO_setOutputHighOnPin(GPIO_PORT_P1, STEPpin);
+    delay_us(rounded_time_del);
+    GPIO_setOutputLowOnPin(GPIO_PORT_P1, STEPpin);
+    i++;
   }
 }
 
@@ -126,4 +158,22 @@ void CB2buttonAdjust_m_(int SW1_interruptFlag, int SW2_interruptFlag)
     __delay_cycles(500000); // Delay 1 second
   }
   lastPinState_R = pinState_R; // Update last pin state 
+}
+
+float pos_Accel_(float time_del) { // Previous time delay input argument
+  float dVelocity = time_del * accel_Val;
+  time_del = 1/(dVelocity + 1/time_del); // td2 = ... 1/td1
+  if (time_del < 0.00025) {
+    time_del = 0.00025; // Minimum time delay 
+  }
+  return time_del; // Return new next time delay
+}
+
+float neg_Accel_(float time_del) {
+  float dVelocity = time_del * -1 * accel_Val;
+  time_del = 1/(dVelocity + 1/time_del);
+  if (time_del > 0.003) {
+    time_del = 0.003;
+  }
+  return time_del;
 }
