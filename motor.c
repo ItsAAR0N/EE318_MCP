@@ -10,7 +10,7 @@ Aaron Shek, @ 2023 University of Strathclyde
 #include <stdio.h>
 #include <math.h>
 #include "motor.h"
-
+#include "transltr.h"
 // Define pins
 #define STEP_PIN BIT7 // 1000000
 #define DIR_PIN BIT6 // 0100000
@@ -18,8 +18,23 @@ Aaron Shek, @ 2023 University of Strathclyde
 #define STEP_PIN_2 BIT4 // 0001000
 #define DIR_PIN_2 BIT3 // 0000100
 
-const int accel_Val = 4000;
-unsigned long difference = 0;
+const int accel_Val = 32000;
+unsigned int rate_ = 1;
+
+// ADC interrupt service routine
+#pragma vector=ADC_VECTOR           
+__interrupt void ADC_ISR(void)
+{
+  switch(__even_in_range(ADCIV,ADCIV_ADCIFG))
+  {
+    case ADCIV_ADCIFG:              
+    rate_ = mapRange_(ADCMEM0,0,1023,1000,32000);
+    //printf("%d\n",rate_);
+    __bic_SR_register_on_exit(LPM0_bits); // Clear CPUOFF bit from LMP0 to prevent MCU sleeping
+    //ADC_clearInterrupt(ADC_BASE,ADC_COMPLETED_INTERRUPT);
+    break;
+  }
+}
 
 void initialiseGPIOs_()
 {
@@ -48,18 +63,18 @@ void initialiseTimer_()
   TA0CCR0 = 3000;
   TA0CCR1 = 1000;
   TA0CCTL1 = OUTMOD_7;
-  TA0CTL = TASSEL_2 | MC_1 | TACLR; 
-  P1DIR |= 0x80; // P1.7 output
-  P1SEL0 |= 0x80; // P1.7 options select
+  TA0CTL = TASSEL_2 | MC_2 | TACLR; 
+  // P1DIR |= 0x80; // P1.7 output
+  // P1SEL0 |= 0x80; // P1.7 options select
 
 }
 
 void initialiseADCpot_()
 {
   // ADC setup
-    // Configure Pin for ADC
+  // Configure Pin for ADC
   GPIO_setAsPeripheralModuleFunctionOutputPin(GPIO_PORT_P8,GPIO_PIN1,GPIO_PRIMARY_MODULE_FUNCTION);
-  // Configure the Pin
+    
   SYSCFG2 |= ADCPCTL9; // Turn on analogue pin A9 (so it is not a GPIO).
   // Configure CLock source, operation mode
   ADCCTL0 |= ADCSHT_2 | ADCON;  // 16 ADCCLK cycles, turn on ADC.
@@ -71,9 +86,9 @@ void initialiseADCpot_()
   ADCIE |= ADCIE0;  //Enable ADC conversion complete interrupt
 }
 
-void readValue_pot_(int rate_)
+int accel_Val_()
 {
-  int currentVal = rate_;
+  return rate_;
 }
 
 void delay_us(unsigned long delay) 
@@ -86,22 +101,45 @@ void delay_us(unsigned long delay)
 void stepMotor_(int n_Steps, bool dir, int motor_Num)
 { 
   int i = 0;
-  int DIRpin, STEPpin;
+  int DIRpin, STEPpin, ENpin;
   
   float time_del = 0.003; // time delay
   int rounded_time_del = 0;
   
+  bool limitSwitch1 = false;
+  bool limitSwitch2 = false;
+
+  // Set up limit switch pins
+  GPIO_setAsInputPinWithPullUpResistor(GPIO_PORT_P1, GPIO_PIN3); // !!!!!!!!!!!!!!!!!!!!
+  GPIO_setAsInputPinWithPullUpResistor(GPIO_PORT_P1, GPIO_PIN4);  
+  
   if (motor_Num == 1) {
     DIRpin = GPIO_PIN6; // Stepper 1 DIR pin
     STEPpin = GPIO_PIN7; // Stepper 1 STEP pin
+    ENpin = GPIO_PIN2; // Stepper 1 Enable pin // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   } else if (motor_Num == 2) {
     DIRpin = GPIO_PIN3; // Stepper 2 DIR pin
     STEPpin = GPIO_PIN4; // Stepper 2 STEP pin
+    ENpin = GPIO_PIN5; // Stepper 1 Enable pin
   } else {
     return; 
   }
   
+  GPIO_setOutputHighOnPin(GPIO_PORT_P1, ENpin); // Activate enable pin for the motor 
+  
   while(i < n_Steps) {
+    // Check limit switch inputs
+    if (GPIO_getInputPinValue(GPIO_PORT_P1, GPIO_PIN3) == GPIO_INPUT_PIN_LOW) {
+      limitSwitch1 = true;
+    }
+    if (GPIO_getInputPinValue(GPIO_PORT_P1, GPIO_PIN4) == GPIO_INPUT_PIN_LOW) {
+      limitSwitch2 = true;
+    }
+    // Stop motor if limit switch is triggered
+    if (limitSwitch1 || limitSwitch2) {
+      break;
+    }
+    ADCCTL0 |= 0x03;
     if (i < n_Steps/2) { // One half accel, the other half decel
       time_del = pos_Accel_(time_del); // Take in initial time delay 
     } else {
@@ -118,6 +156,9 @@ void stepMotor_(int n_Steps, bool dir, int motor_Num)
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, STEPpin);
     i++;
   }
+  
+  GPIO_setOutputLowOnPin(GPIO_PORT_P1, ENpin); // Deactivate enable pin for the motor
+  
 }
 
 void CB2buttonAdjust_m_(int SW1_interruptFlag, int SW2_interruptFlag)
@@ -161,7 +202,7 @@ void CB2buttonAdjust_m_(int SW1_interruptFlag, int SW2_interruptFlag)
 }
 
 float pos_Accel_(float time_del) { // Previous time delay input argument
-  float dVelocity = time_del * accel_Val;
+  float dVelocity = time_del * accel_Val_(); // !! accel_val
   time_del = 1/(dVelocity + 1/time_del); // td2 = ... 1/td1
   if (time_del < 0.00025) {
     time_del = 0.00025; // Minimum time delay 
@@ -170,7 +211,7 @@ float pos_Accel_(float time_del) { // Previous time delay input argument
 }
 
 float neg_Accel_(float time_del) {
-  float dVelocity = time_del * -1 * accel_Val;
+  float dVelocity = time_del * -1 * accel_Val_();
   time_del = 1/(dVelocity + 1/time_del);
   if (time_del > 0.003) {
     time_del = 0.003;

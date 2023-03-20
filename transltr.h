@@ -17,5 +17,5 @@ typedef struct InvKVals {
 } InvKVals;
 
 extern InvKVals calc_invK(float x_coord, float y_coord);
-extern long map(long x, long in_min, long in_max, long out_min, long out_max);
+extern long mapRange_(long x, long in_min, long in_max, long out_min, long out_max);
 #endif

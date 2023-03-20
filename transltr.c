@@ -47,7 +47,7 @@ InvKVals calc_invK(float x_coord, float y_coord) {
   
   return result;
 }
-// https://techexplorations.com/guides/arduino/programming/map-function/
-long map(long x, long in_min, long in_max, long out_min, long out_max) { 
+
+long mapRange_(long x, long in_min, long in_max, long out_min, long out_max) { 
   return (x - in_min)*(out_max - out_min)/(in_max - in_min) + out_min;
 }
