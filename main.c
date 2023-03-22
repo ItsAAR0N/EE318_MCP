@@ -95,15 +95,16 @@ void main(void)
     // True => Clockwise, False => anticlockwise   
     // Control examples 
     
-    stepMotor_(200,true,M1); // 90 degrees clockwise for motor 1
-    delay_us(150000);
-    stepMotor_(200,false,M2); // 90 degrees anticlockwise
+    // stepMotor_(200,true,M1); // 90 degrees clockwise for motor 1
+    // delay_us(150000);
+    // stepMotor_(200,false,M2); // 90 degrees anticlockwise
     
     // delay_us(150000);    
     // stepMotor_(50,true,M1); // 90 degrees
     // delay_us(150000);
     // stepMotor_(25,true,M1); // 45 degrees
-    delay_us(300000);
+    
+    // delay_us(300000);
     
   } 
   // Indicator LED

@@ -9,6 +9,8 @@ Aaron Shek, @ 2023 University of Strathclyde
 #include <driverlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
+#include <stdlib.h>
 #include "transltr.h"
 
 #define PI 3.14159265358979323846
@@ -17,14 +19,18 @@ Aaron Shek, @ 2023 University of Strathclyde
 #define SPACING 110
 #define ARM 190
 
-#define LED_OUT     P1OUT
-#define LED_DIR     P1DIR
-#define LED_PIN     BIT2
+#define LED_OUT P1OUT
+#define LED_DIR P1DIR
+#define LED_PIN BIT2
 
-#define SMCLK_115200     0
-#define SMCLK_9600       1
+#define SMCLK_115200 0
+#define SMCLK_9600 1
 
-#define UART_MODE       SMCLK_115200//SMCLK_9600//
+#define UART_MODE SMCLK_115200 // SMCLK_9600
+#define BUFFER_SIZE 64 // Editable String length
+
+char buffer[BUFFER_SIZE];
+volatile uint8_t bufferIndex = 0;
 
 const float offset_1 = (WIDTH / 2) - (SPACING / 2); // M1 offset
 const float offset_2 = (WIDTH / 2) - (SPACING / 2) + SPACING; // M2 
@@ -49,7 +55,14 @@ void __attribute__ ((interrupt(USCI_A0_VECTOR))) USCI_A0_ISR (void)
     case USCI_NONE: break;
     case USCI_UART_UCRXIFG:
       while(!(UCA0IFG&UCTXIFG));
-      UCA0TXBUF = UCA0RXBUF;
+      // UCA0TXBUF = UCA0RXBUF;
+      buffer[bufferIndex] = UCA0RXBUF; // Receive char from RX
+      bufferIndex++;
+      if(bufferIndex >= BUFFER_SIZE || buffer[bufferIndex - 1] == '\n') {
+        buffer[bufferIndex] = '\0'; // Null-terminate the string
+        printf("Received: %s", buffer);
+        bufferIndex = 0; // Reset buffer for next incoming message    
+      }
       __no_operation();
       break;
     case USCI_UART_UCTXIFG: break;
@@ -59,7 +72,7 @@ void __attribute__ ((interrupt(USCI_A0_VECTOR))) USCI_A0_ISR (void)
 }
 
 // UART initialisation
-void initUART()
+void initUART_()
 {
     // Configure USCI_A0 for UART mode
     UCA0CTLW0 |= UCSWRST;                      // Put eUSCI in reset
@@ -86,7 +99,7 @@ void initUART()
     UCA0IE |= UCRXIE;                         // Enable USCI_A0 RX interrupt
 }
 
-void initGPIO()
+void initGPIO_()
 {
     LED_DIR |= LED_PIN;
     LED_OUT &= ~LED_PIN;
@@ -99,7 +112,7 @@ void initGPIO()
     PM5CTL0 &= ~LOCKLPM5;
 }
 
-void initClockTo16MHz()
+void initClockTo16MHz_()
 {
     // Configure one FRAM waitstate as required by the device datasheet for MCLK
     // operation beyond 8MHz _before_ configuring the clock system.
@@ -118,6 +131,27 @@ void initClockTo16MHz()
     while(CSCTL7 & (FLLUNLOCK0 | FLLUNLOCK1));      // FLL locked
 
     CSCTL4 = SELMS__DCOCLKDIV | SELA__REFOCLK;
+}
+
+void GCode_Interpret_(char* buffer)
+{
+  // Typical G-Code command as follows: G## X## Y## Z## F##
+  char* ptr; // pointer used for string parsing
+  int x_coord, y_coord; // variables to store X, Y, and Z values
+
+  // Extract X value
+  ptr = strstr(buffer, "X"); // find the "X" character in the string
+  x_coord = atoi(ptr+1); // convert the substring after "X" to an integer
+
+  // Extract Y value
+  ptr = strstr(buffer, "Y"); 
+  y_coord = atoi(ptr+1); 
+
+  printf("X: %d\nY: %d\n", x_coord, y_coord);
+  
+  // To call the function for example
+  //char input[] = "X30 Y20 Z200";
+  //GCode_Interpret_(input);
 }
 
 InvKVals calc_invK(float x_coord, float y_coord) { 

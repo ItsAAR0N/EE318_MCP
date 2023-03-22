@@ -16,9 +16,10 @@ typedef struct InvKVals {
   float ang_2;
 } InvKVals;
 
-extern void initUART();
-extern void initGPIO();
-extern void initClockTo16MHz();
+extern void initUART_();
+extern void initGPIO_();
+extern void initClockTo16MHz_();
+extern void GCode_Interpret_(char* buffer);
 extern InvKVals calc_invK(float x_coord, float y_coord);
 extern long mapRange_(long x, long in_min, long in_max, long out_min, long out_max);
 #endif
