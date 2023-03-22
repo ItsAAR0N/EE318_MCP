@@ -63,6 +63,18 @@ void main(void)
   initialiseTimer_();
   initialiseADCpot_();
   
+  // Initialise UART interface for Tx and Rx
+  initGPIO();
+  initClockTo16MHz();
+  initUART();
+
+  #if UART_MODE == SMCLK_9600
+      __bis_SR_register(LPM0_bits + GIE);       // Since ACLK is source, enter LPM0, interrupts enabled
+  #else
+      __bis_SR_register(LPM0_bits + GIE);       // Since SMCLK is source, enter LPM0, interrupts enabled
+  #endif
+    __no_operation();                         // For debugger
+  
   PM5CTL0 &= ~LOCKLPM5; PMM_unlockLPM5();
   __enable_interrupt();  
  
