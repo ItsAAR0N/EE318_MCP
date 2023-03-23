@@ -28,6 +28,12 @@ struct invK_vals {
     float dist_2;
 };
 
+typedef struct {
+    int x;
+    int y;
+    int z;
+} GCode_Command;
+
 
 struct invK_vals calc_invK_(float x_coord, float y_coord)
 {
@@ -54,6 +60,26 @@ struct invK_vals calc_invK_(float x_coord, float y_coord)
         return invK_out;
     }
 }
+GCode_Command GCode_Interpret(char* buffer)
+{
+    // Typical G-Code command as follows: G## X## Y## Z## F##
+    char* ptr; // pointer used for string parsing
+    GCode_Command command; // struct to store X, Y, and Z values
+
+    // extract X value
+    ptr = strstr(buffer, "X"); // find the "X" character in the string
+    command.x = atoi(ptr + 1); // convert the substring after "X" to an integer
+
+    // extract Y value
+    ptr = strstr(buffer, "Y");
+    command.y = atoi(ptr + 1);
+
+    // extract Z value
+    ptr = strstr(buffer, "Z");
+    command.z = atoi(ptr + 1);
+
+    return command;
+}
 
 int main()
 {
@@ -65,5 +91,10 @@ int main()
         }
     }
 
-
+    char input[] = "X30 Y20 Z200";
+    char command_string[] = "G1 X69 Y42 Z30"; // example G-code command string
+    GCode_Command command = GCode_Interpret(command_string); // call the function
+    invK_vals invK = calc_invK_(command.x, command.y);
+    cout << "x_coord = " << command.x << ", y_coord = " << command.y << endl;
+    cout << "dist_1 = " << invK.dist_1 << ", ang_1 = " << invK.ang_1 * 180 / PI << ", ang_2 = " << invK.ang_2 * 180 / PI << ", dist_2 = " << invK.dist_2 << endl << endl;
 }
