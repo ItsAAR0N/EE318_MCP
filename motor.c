@@ -18,7 +18,7 @@ Aaron Shek, @ 2023 University of Strathclyde
 #define STEP_PIN_2 BIT4 // 0001000
 #define DIR_PIN_2 BIT3 // 0000100
 
-const int accel_Val = 32000;
+const int accel_Val = 4000;
 unsigned int rate_ = 1;
 
 // ADC interrupt service routine
@@ -54,7 +54,9 @@ void initialiseGPIOs_()
   GPIO_enableInterrupt(GPIO_PORT_P2, GPIO_PIN6); 
   // Configure MS1 uStepping resolution LED1/5 and MSn pins
   P8DIR |= 0x01; 
-  P2DIR |= 0x80; 
+  P2DIR |= 0x80;
+  // USCI_A0 UART operation
+  P1SEL0 |= BIT0 | BIT1;
 }
 
 void initialiseTimer_()
@@ -98,7 +100,7 @@ void delay_us(unsigned long delay)
   }
 } 
 
-void stepMotor_(int n_Steps, bool dir, int motor_Num)
+void stepMotor_(int n_Steps, bool dir, int motor_Num) // float current_position
 { 
   int i = 0;
   int DIRpin, STEPpin, ENpin;
@@ -106,59 +108,43 @@ void stepMotor_(int n_Steps, bool dir, int motor_Num)
   float time_del = 0.003; // time delay
   int rounded_time_del = 0;
   
-  bool limitSwitch1 = false;
-  bool limitSwitch2 = false;
-
-  // Set up limit switch pins
-  GPIO_setAsInputPinWithPullUpResistor(GPIO_PORT_P1, GPIO_PIN3); // !!!!!!!!!!!!!!!!!!!!
-  GPIO_setAsInputPinWithPullUpResistor(GPIO_PORT_P1, GPIO_PIN4);  
-  
   if (motor_Num == 1) {
     DIRpin = GPIO_PIN6; // Stepper 1 DIR pin
     STEPpin = GPIO_PIN7; // Stepper 1 STEP pin
-    ENpin = GPIO_PIN2; // Stepper 1 Enable pin // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   } else if (motor_Num == 2) {
-    DIRpin = GPIO_PIN3; // Stepper 2 DIR pin
-    STEPpin = GPIO_PIN4; // Stepper 2 STEP pin
-    ENpin = GPIO_PIN5; // Stepper 1 Enable pin
+    DIRpin = GPIO_PIN4; // Stepper 2 DIR pin
+    STEPpin = GPIO_PIN3; // Stepper 2 STEP pin
   } else {
     return; 
   }
-  
-  GPIO_setOutputHighOnPin(GPIO_PORT_P1, ENpin); // Activate enable pin for the motor 
-  
-  while(i < n_Steps) {
-    // Check limit switch inputs
-    if (GPIO_getInputPinValue(GPIO_PORT_P1, GPIO_PIN3) == GPIO_INPUT_PIN_LOW) {
-      limitSwitch1 = true;
-    }
-    if (GPIO_getInputPinValue(GPIO_PORT_P1, GPIO_PIN4) == GPIO_INPUT_PIN_LOW) {
-      limitSwitch2 = true;
-    }
-    // Stop motor if limit switch is triggered
-    if (limitSwitch1 || limitSwitch2) {
-      break;
-    }
-    ADCCTL0 |= 0x03;
+  ADCCTL0 |= 0x03;
+  while(i < n_Steps) {       
     if (i < n_Steps/2) { // One half accel, the other half decel
       time_del = pos_Accel_(time_del); // Take in initial time delay 
     } else {
       time_del = neg_Accel_(time_del); 
     }
     rounded_time_del = round(time_del*500000); 
+    
+    // Check if the step would exceed the 180-degree limit
+    // if (dir == true && current_position + (i+1)*1.8 > 180) {
+    //   n_Steps = i + round((180 - current_position)*1.8);
+    // } else if (dir == false && current_position - (i+1)*1.8 < 0) {
+    //   n_Steps = i + round(current_position*1.8);
+    // }
+    
     if (dir == true) {
         GPIO_setOutputHighOnPin(GPIO_PORT_P1, DIRpin); // Set anti-clockwise direction
+        // current_position += 1.8; // Update current position for clockwise direction
     } else {
-        GPIO_setOutputLowOnPin(GPIO_PORT_P1, DIRpin); // Set false-clockwise direction
+        GPIO_setOutputLowOnPin(GPIO_PORT_P1, DIRpin); // Set anti-clockwise direction
+        // current_position -= 1.8; // Update current position for anti-clockwise direction
     }
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, STEPpin);
     delay_us(rounded_time_del);
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, STEPpin);
     i++;
   }
-  
-  GPIO_setOutputLowOnPin(GPIO_PORT_P1, ENpin); // Deactivate enable pin for the motor
-  
 }
 
 void CB2buttonAdjust_m_(int SW1_interruptFlag, int SW2_interruptFlag)
