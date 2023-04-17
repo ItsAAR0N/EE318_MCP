@@ -17,7 +17,7 @@ Aaron Shek, @ 2023 University of Strathclyde
 // ---- Constants ----
 #define PI 3.14159265358979323846
 #define RADTODEG 57.2958 // 1 Rad = 57.3 degrees
-#define STEPSPERDEG 1.8 // 1.8 deg/step
+#define STEPSPERDEG 360/1600 // 0.556 degrees per step
 
 // ---- Physical dimensions ----
 #define WIDTH 320
@@ -32,7 +32,8 @@ Aaron Shek, @ 2023 University of Strathclyde
 // ---- Motor definition ---- 
 #define M1 1
 #define M2 2
-
+#define CW 1                            // Motor directions
+#define CCW 0
 // ---- UART interface ----
 #define SMCLK_115200 0
 #define SMCLK_9600 1
@@ -42,10 +43,47 @@ Aaron Shek, @ 2023 University of Strathclyde
 const float offset_1 = (WIDTH / 2) - (SPACING / 2);             // M1 offset
 const float offset_2 = (WIDTH / 2) - (SPACING / 2) + SPACING;   // M2 
 const float space_dim_Y = 350;                                  // Length of sheet
-const float length_arm_L = ARM;
-
+const float length_arm = ARM;
+const float YAXIS = 350;                // Motor distance to (0,0)
+// ---- Inverse Kinematic calculations ----
 float x_coord;
 float y_coord;
+long previousSteps_1 = 0;
+long previousSteps_2 = 0;
+int32_t  STEPS1;
+int32_t  STEPS2;
+
+// ---- Calculate Delays ----
+long DELAY1;
+long DELAY2;
+
+// ---- Timer delay ---- 
+volatile uint32_t timer_count = 0;
+
+void init_timer() {
+  // Set up Timer_A with SMCLK as clock source, divide by 1, up mode, and enable interrupt
+  TA0CTL = TASSEL_2 | ID_0 | MC_1 | TACLR | TAIE;
+  TA0CCR0 = 15; // Set the compare register to 15 for a 1us period
+}
+
+#pragma vector = TIMER0_A1_VECTOR
+__interrupt void TIMERA0_ISR1(void)
+{
+  switch(__even_in_range(TA0IV,10)) // Clears the flag
+  {
+    case TA0IV_TAIFG:
+      timer_count += TA0CCR0;
+      TA0CCR0 += 15; // Increment TA0CCR0 by 15 for the next interrupt
+      break;
+    default:
+      break;
+  }
+}
+
+float micros() {
+  float time_seconds = timer_count / (float)(16000000); // assuming 16MHz SMCLK frequency and prescaler of 1
+  return time_seconds * 1000000; // convert to microseconds
+}
 
 // UART initialisation
 void initUART_()
@@ -134,39 +172,119 @@ void processUARTinstr_(char* buffer)
 
 InvKVals calc_invK(float x_coord, float y_coord) { 
   InvKVals result;
-  if (x_coord < offset_1) {
-    // Left arm if on LHS of plane
-    result.dist_1 = sqrt((offset_1 - x_coord)*(offset_1 - x_coord) + (space_dim_Y - y_coord)*(space_dim_Y - y_coord));
-    result.ang_1 = PI + atan((offset_1 - x_coord)/(space_dim_Y - y_coord)) + acos(result.dist_1/(2 * length_arm_L));
-    
-    // Right arm if on LHS of plane
-    result.dist_2 = sqrt((offset_2 - x_coord)*(offset_2 - x_coord) + (space_dim_Y - y_coord)*(space_dim_Y - y_coord));
-    result.ang_2 = PI + atan((offset_2 - x_coord)/(space_dim_Y - y_coord)) + acos(result.dist_2/(2 * length_arm_L)); 
-  } else {
-    // Left arm if on RHS of plane  
-    result.dist_1 = sqrt((x_coord - offset_1)*(x_coord - offset_2) + (space_dim_Y - y_coord)*(space_dim_Y - y_coord));
-    result.ang_1 = PI + atan((x_coord - offset_1)/(space_dim_Y - y_coord)) + acos(result.dist_1/(2 * length_arm_L));
-    
-    // Right arm if on RHS of plane
-    result.dist_2 = sqrt((x_coord - offset_2)*(x_coord - offset_2) + (space_dim_Y - y_coord)*(space_dim_Y - y_coord));
-    result.ang_2 = PI - atan((x_coord - offset_2)/(space_dim_Y - y_coord)) + acos(result.dist_2/(2 * length_arm_L));  
-  }
   
+  // Calculate distances (L)
+  result.dist_1 = sqrt((offset_1 - x_coord)*(offset_1 - x_coord) + (space_dim_Y - y_coord)*(space_dim_Y - y_coord));
+  //printf("Dist1: %f\n",result.dist_1);
+  result.dist_2 = sqrt((offset_2 - x_coord)*(offset_2 - x_coord) + (space_dim_Y - y_coord)*(space_dim_Y - y_coord));
+  //printf("Dist2: %f\n",result.dist_2);
+  // Calculate M1 angle when at (x,y)
+  if (x_coord > offset_1) {
+    result.ang_1 = (PI + acos(result.dist_1/(2*length_arm)) - atan((x_coord - offset_1)/(space_dim_Y - y_coord)));      // LHS
+  } else {
+    result.ang_1 = (PI + acos(result.dist_1/(2*length_arm)) + atan((offset_1 - x_coord)/(space_dim_Y - y_coord)));      // RHS
+  }
+  //printf("Angle 1: %f\n",result.ang_1);// 
+  // Calculate M2 angle when at start pos. (0,0)
+  if (x_coord > offset_2) {
+    result.ang_2 = (PI - acos(result.dist_2/(2*length_arm)) - atan((x_coord - offset_2)/(space_dim_Y - y_coord)));
+  } else {
+    result.ang_2 = (PI - acos(result.dist_2/(2*length_arm)) + atan((offset_2 - x_coord)/(space_dim_Y - y_coord)));
+  }
+  //printf("Angle 2: %f\n",result.ang_2);// 
+  // Calculate steps required to reach (x,y) from 12
+  STEPS1 = ((result.ang_1)*57.3)/0.225; //0.225
+  //printf("STEPS1: %ld\n",STEPS1); // 
+  STEPS2 = ((result.ang_2)*57.3)/0.225;   
+  //printf("STEPS2: %ld\n",STEPS2); // 
   return result;
 }
 
 void MoveTo_(float x_coord, float y_coord)
 { 
-  float currentSteps_1;
-  float currentSteps_2;
+  long previousSteps_1 = STEPS1;
+  //printf("previousSteps_1: %ld\n",previousSteps_1); //
+  long previousSteps_2 = STEPS2;
+  //printf("previousSteps_2: %ld\n",previousSteps_2); // 
+  int32_t currentSteps_1;
+  int32_t currentSteps_2;
+  long Steps1;
+  long Steps2;
+  
+  bool DIR_1; 
+  bool DIR_2;
+  
   InvKVals result = calc_invK(x_coord, y_coord); 
-  currentSteps_1 = round((result.ang_1*RADTODEG)/STEPSPERDEG);
-  currentSteps_2 = round((result.ang_2*RADTODEG)/STEPSPERDEG);     
-  stepMotor_(currentSteps_1,true,M1);
-  stepMotor_(currentSteps_2,true,M2);
+  currentSteps_1 = STEPS1;
+  //printf("currentSteps_1: %ld\n",currentSteps_1); //
+  currentSteps_2 = STEPS2;
+  //printf("currentSteps_2: %ld\n",currentSteps_2); // 
+  Steps1 = abs(previousSteps_1-currentSteps_1);
+  //printf("Steps 1: %ld\n",Steps1);
+  Steps2 = abs(previousSteps_2-currentSteps_2);
+  //printf("Steps 2: %ld\n",Steps2); // 
+  //printf("--------------------------------\n");
+  if (currentSteps_1 > previousSteps_1) {
+    DIR_1 = CW;
+  } else {
+      DIR_1 = CCW;
+  }
+
+  if (currentSteps_2 > previousSteps_2) {
+    DIR_2 = CW;
+  } else {
+      DIR_2 = CCW;
+  }
+  // Step the motors 
+  calculateDelays_(Steps1,Steps2);
+  
+  while ((Steps1 != 0) || (Steps2 != 0)) {
+  if (Steps1 > 0) {
+    Steps1--;
+    stepMotor1Basic_(DIR_1);
+  }
+  if (Steps2 > 0) {
+    Steps2--;
+    stepMotor2Basic_(DIR_2);
+    }
+  }
   // calc_invK(float x_coord, float y_coord);
 }
-                       
+
+void calculateDelays_(long Steps1, long Steps2) {
+  float rotateTime;
+  
+  long minSteps;
+  long maxSteps;
+  long maxDelay;
+  
+  maxSteps = max(Steps1,Steps2);
+  minSteps = min(Steps1,Steps2);
+  
+  // Error prevention
+  if (maxSteps < 1) {
+    maxSteps = 1;
+  }
+  
+  if (minSteps < 1) {
+    minSteps = 1;
+  }
+  
+  // Calculate the total time for completion of one move
+  rotateTime = maxSteps*20000;
+  DELAY1 = (Steps1 > Steps2) ? 20000 : maxDelay;
+  DELAY2 = (Steps1 > Steps2) ? maxDelay : 20000;
+}
+
+
+int max(int a, int b) {
+    return (a > b) ? a : b;
+}
+
+int min(int a, int b) {
+    return (a < b) ? a : b;
+}
+
 long mapRange_(long x, long in_min, long in_max, long out_min, long out_max) { 
   return (x - in_min)*(out_max - out_min)/(in_max - in_min) + out_min;
 }

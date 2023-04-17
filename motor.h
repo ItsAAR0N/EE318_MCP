@@ -15,6 +15,8 @@ extern void initialiseADCpot_();
 extern int accel_Val_();
 extern void delay_us(unsigned long delay);
 extern void stepMotor_(int n_Steps, bool dir, int motor_Num);
+extern void stepMotor1Basic_(bool DIR_1);
+extern void stepMotor2Basic_(bool DIR_2);
 extern void penManualControl_();
 extern void penUp_();
 extern void penDown_();

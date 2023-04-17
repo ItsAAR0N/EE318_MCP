@@ -110,22 +110,47 @@ void main(void)
   initialiseADCpot_();
   initUART_();
   initClockTo8MHz_();
+  //printf("Test: %lu\n",micros());
+  //init_timer(); // Intialize the timer
+  __enable_interrupt(); 
+  delay_us(3000000);
+  MoveTo_(50,50);
+  ////delay_us(1000000);
+  //MoveTo_(200,200);
+  //delay_us(1000000);
+  //MoveTo_(5,5);
+  //delay_us(3000000);
+  //MoveTo_(10,15);
+  //delay_us(3000000); 
+  //stepMotor_(200, 1, M1);
+  //stepMotor_(200, 0, M2);
+  //delay_us(3000000);  
+  //stepMotor_(50,true,M2);
   
-  __enable_interrupt();  
+  //MoveTo_(25,25);
+  //radials();
+  //MoveTo_(130, 130);
+  //delay_us(3000000);
+  //MoveTo_(50,50);
+  //for (int i = 0; i <= 300; i++) {
+  //  MoveTo_(0,i);
+  //}
+  //delay_us(3000000);
+  //radials();
   while(true) { 
+    //printf("f\n");
     if ((GPIO_getInputPinValue(GPIO_PORT_P1, GPIO_PIN2) == false) || (GPIO_getInputPinValue(GPIO_PORT_P2, GPIO_PIN6) == false)) {
       CB2buttonAdjust_m_(SW1_interruptFlag_, SW2_interruptFlag_);
     }
-    
+    ADCCTL0 |= 0x83; // ADCENC (ADC enable conversion), ADCSC Start sample and conversion, ADCMSC multiply sample-and-conversion
+  //printf("f: %lu\n",micros());
     // 200 => 360 degrees, 100 => 180 degrees, 50 => 90 degrees, 25 => 45 degrees, ...
     // True => Clockwise, False => anticlockwise
     
     // ---- Control examples ----
-    penManualControl_();
-    stepMotor_(200,true,M1); // 90 degrees clockwise for motor 1
-    delay_us(150000);
-    stepMotor_(200,false,M2); // 90 degrees anticlockwise
-    delay_us(300000);
+    // penManualControl_();
+
+    // delay_us(300000);
   } 
   // Indicator LED
   P4OUT ^= LED_PIN;
