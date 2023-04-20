@@ -17,12 +17,13 @@ Aaron Shek, @ 2023 University of Strathclyde
 // ---- Constants ----
 #define PI 3.14159265358979323846
 #define RADTODEG 57.2958 // 1 Rad = 57.3 degrees
-#define STEPSPERDEG 360/1600 // 0.556 degrees per step
+#define STEPSPERDEG 3200/360 // 0.556 degrees per step
 
 // ---- Physical dimensions ----
-#define WIDTH 320
-#define SPACING 110
-#define ARM 190
+//#define WIDTH 300
+//#define SPACING 110
+#define ARM 195
+#define SCALE_FACTOR 1
 
 // ---- LED setup ----
 #define LED_OUT P1OUT
@@ -34,17 +35,21 @@ Aaron Shek, @ 2023 University of Strathclyde
 #define M2 2
 #define CW 1                            // Motor directions
 #define CCW 0
+
 // ---- UART interface ----
 #define SMCLK_115200 0
 #define SMCLK_9600 1
 #define UART_MODE       SMCLK_115200    // SMCLK_9600
 
 // ---- Dimension calculations ----
-const float offset_1 = (WIDTH / 2) - (SPACING / 2);             // M1 offset
-const float offset_2 = (WIDTH / 2) - (SPACING / 2) + SPACING;   // M2 
-const float space_dim_Y = 350;                                  // Length of sheet
+// const float offset_1 = (WIDTH / 2) - (SPACING / 2);             // M1 offset
+// const float offset_2 = (WIDTH / 2) - (SPACING / 2) + SPACING;   // M2 
+const float offset_1 = 78;
+const float offset_2 = 187;
+const float space_dim_Y = 337;                                  // Length of sheet
 const float length_arm = ARM;
-const float YAXIS = 350;                // Motor distance to (0,0)
+// const float YAXIS = 345;                // Motor distance to (0,0)
+
 // ---- Inverse Kinematic calculations ----
 float x_coord;
 float y_coord;
@@ -69,11 +74,11 @@ void init_timer() {
 #pragma vector = TIMER0_A1_VECTOR
 __interrupt void TIMERA0_ISR1(void)
 {
-  switch(__even_in_range(TA0IV,10)) // Clears the flag
+  switch(__even_in_range(TA0IV,10))     // Clears the flag
   {
     case TA0IV_TAIFG:
       timer_count += TA0CCR0;
-      TA0CCR0 += 15; // Increment TA0CCR0 by 15 for the next interrupt
+      TA0CCR0 += 15;                    // Increment TA0CCR0 by 15 for the next interrupt
       break;
     default:
       break;
@@ -82,7 +87,7 @@ __interrupt void TIMERA0_ISR1(void)
 
 float micros() {
   float time_seconds = timer_count / (float)(16000000); // assuming 16MHz SMCLK frequency and prescaler of 1
-  return time_seconds * 1000000; // convert to microseconds
+  return time_seconds * 1000000;                        // convert to microseconds
 }
 
 // UART initialisation
@@ -93,11 +98,11 @@ void initUART_()
 #if UART_MODE == SMCLK_115200
 
     UCA0CTLW0 |= UCSSEL__SMCLK; // CLK = SMCLK  (DCO @ 8MHz)
-    // Baud Rate Setting
-    // Use Table 15-4
-    // N = f_BRCLK/Baud Rate = 8 MHz/115200 = 69.444.. (N >16) 
-    UCA0BRW = 4; // INT(N/16) = 4
-    // UCBRFx = INT[(N/16) - INT(N/16) * 16] = approx. 5. 
+                                // Baud Rate Setting
+                                // Use Table 15-4
+                                // N = f_BRCLK/Baud Rate = 8 MHz/115200 = 69.444.. (N >16) 
+    UCA0BRW = 4;                // INT(N/16) = 4
+                                // UCBRFx = INT[(N/16) - INT(N/16) * 16] = approx. 5. 
     UCA0MCTLW |= UCOS16 | UCBRF_5 | 0x55;   //0x55 is UCBRSx = 0x55
 
 #elif UART_MODE == SMCLK_9600
@@ -134,16 +139,16 @@ void initClockTo8MHz_()
     // operation beyond 8MHz _before_ configuring the clock system.
     FRCTL0 = FRCTLPW | NWAITS_1;
 
-    __bis_SR_register(SCG0);    // disable FLL
+    __bis_SR_register(SCG0);    // Disable FLL
     CSCTL3 |= SELREF__REFOCLK;  // Set REFO as FLL reference source
-    CSCTL0 = 0;                 // clear DCO and MOD registers
+    CSCTL0 = 0;                 // Clear DCO and MOD registers
     CSCTL1 &= ~(DCORSEL_7);     // Clear DCO frequency select bits first
     CSCTL1 |= DCORSEL_3;        // Set DCO = 16MHz
     CSCTL2 = FLLD_0 + 244;      // set to fDCOCLKDIV = (FLLN + 1)*(fFLLREFCLK/n)
                                 //                   = (244 + 1)*(32.768 kHz/1)
                                 //                   = 8 MHz
     __delay_cycles(3);
-    __bic_SR_register(SCG0); // enable FLL
+    __bic_SR_register(SCG0);    // Enable FLL
     while(CSCTL7 & (FLLUNLOCK0 | FLLUNLOCK1)); // FLL locked
 
     CSCTL4 = SELMS__DCOCLKDIV | SELA__REFOCLK;
@@ -175,37 +180,39 @@ InvKVals calc_invK(float x_coord, float y_coord) {
   
   // Calculate distances (L)
   result.dist_1 = sqrt((offset_1 - x_coord)*(offset_1 - x_coord) + (space_dim_Y - y_coord)*(space_dim_Y - y_coord));
-  //printf("Dist1: %f\n",result.dist_1);
+
   result.dist_2 = sqrt((offset_2 - x_coord)*(offset_2 - x_coord) + (space_dim_Y - y_coord)*(space_dim_Y - y_coord));
-  //printf("Dist2: %f\n",result.dist_2);
+
   // Calculate M1 angle when at (x,y)
   if (x_coord > offset_1) {
     result.ang_1 = (PI + acos(result.dist_1/(2*length_arm)) - atan((x_coord - offset_1)/(space_dim_Y - y_coord)));      // LHS
   } else {
     result.ang_1 = (PI + acos(result.dist_1/(2*length_arm)) + atan((offset_1 - x_coord)/(space_dim_Y - y_coord)));      // RHS
   }
-  //printf("Angle 1: %f\n",result.ang_1);// 
+
   // Calculate M2 angle when at start pos. (0,0)
   if (x_coord > offset_2) {
     result.ang_2 = (PI - acos(result.dist_2/(2*length_arm)) - atan((x_coord - offset_2)/(space_dim_Y - y_coord)));
   } else {
     result.ang_2 = (PI - acos(result.dist_2/(2*length_arm)) + atan((offset_2 - x_coord)/(space_dim_Y - y_coord)));
   }
-  //printf("Angle 2: %f\n",result.ang_2);// 
+
   // Calculate steps required to reach (x,y) from 12
-  STEPS1 = ((result.ang_1)*57.3)/0.225; //0.225
-  //printf("STEPS1: %ld\n",STEPS1); // 
-  STEPS2 = ((result.ang_2)*57.3)/0.225;   
-  //printf("STEPS2: %ld\n",STEPS2); // 
+  STEPS1 = result.ang_1*RADTODEG*STEPSPERDEG; 
+
+  STEPS2 = result.ang_2*RADTODEG*STEPSPERDEG;   
+
   return result;
 }
 
 void MoveTo_(float x_coord, float y_coord)
 { 
+  x_coord = x_coord*SCALE_FACTOR;
+  y_coord = y_coord*SCALE_FACTOR;
+  
   long previousSteps_1 = STEPS1;
-  //printf("previousSteps_1: %ld\n",previousSteps_1); //
   long previousSteps_2 = STEPS2;
-  //printf("previousSteps_2: %ld\n",previousSteps_2); // 
+
   int32_t currentSteps_1;
   int32_t currentSteps_2;
   long Steps1;
@@ -214,16 +221,13 @@ void MoveTo_(float x_coord, float y_coord)
   bool DIR_1; 
   bool DIR_2;
   
+  // Calculate steps required
   InvKVals result = calc_invK(x_coord, y_coord); 
   currentSteps_1 = STEPS1;
-  //printf("currentSteps_1: %ld\n",currentSteps_1); //
   currentSteps_2 = STEPS2;
-  //printf("currentSteps_2: %ld\n",currentSteps_2); // 
   Steps1 = abs(previousSteps_1-currentSteps_1);
-  //printf("Steps 1: %ld\n",Steps1);
   Steps2 = abs(previousSteps_2-currentSteps_2);
-  //printf("Steps 2: %ld\n",Steps2); // 
-  //printf("--------------------------------\n");
+  
   if (currentSteps_1 > previousSteps_1) {
     DIR_1 = CW;
   } else {
@@ -235,20 +239,23 @@ void MoveTo_(float x_coord, float y_coord)
   } else {
       DIR_2 = CCW;
   }
+  
   // Step the motors 
   calculateDelays_(Steps1,Steps2);
+  int init_Steps1 = Steps1;
+  int init_Steps2 = Steps2;
   
   while ((Steps1 != 0) || (Steps2 != 0)) {
   if (Steps1 > 0) {
     Steps1--;
-    stepMotor1Basic_(DIR_1);
+
+    stepMotor1_(init_Steps1,Steps1,DIR_1);
   }
   if (Steps2 > 0) {
     Steps2--;
-    stepMotor2Basic_(DIR_2);
+    stepMotor2_(init_Steps2,Steps2,DIR_2);
     }
   }
-  // calc_invK(float x_coord, float y_coord);
 }
 
 void calculateDelays_(long Steps1, long Steps2) {
@@ -524,5 +531,66 @@ void radials() {
   penUp_();
 
   // ---- Home
+  MoveTo_(0.0000, 0.0000);
+}
+
+void target()
+{
+// ----- circle
+  penUp_();
+  MoveTo_(130,100);
+  MoveTo_(128,88);
+  MoveTo_(122,79);
+  MoveTo_(112,73);
+  MoveTo_(100,70);
+  MoveTo_(87,73);
+  MoveTo_(78,79);
+  MoveTo_(71,88);
+  MoveTo_(69,100);
+  MoveTo_(71,111);
+  MoveTo_(78,123);
+  MoveTo_(87,130);
+  MoveTo_(100,132);
+  MoveTo_(112,130);
+  MoveTo_(122,123);
+  MoveTo_(129,110);
+  MoveTo_(130,100);
+  penUp_();
+
+  // ----- back-slash
+  penUp_();
+  MoveTo_(50,150);
+  penDown_();
+  MoveTo_(78,123);
+  MoveTo_(100,100);
+  MoveTo_(123,79);
+  MoveTo_(150,50);
+  penUp_();
+
+  // ----- slash
+  penUp_();
+  MoveTo_(50,50);
+  penDown_();
+  MoveTo_(78,79);
+  MoveTo_(100,100);
+  MoveTo_(122,123);
+  MoveTo_(150,150);
+  penUp_();
+
+  // ----- square
+  penUp_();
+  MoveTo_(50,150);
+  penDown_();
+  MoveTo_(100,150);
+  MoveTo_(150,150);
+  MoveTo_(150,100);
+  MoveTo_(150,50);
+  MoveTo_(100,50);
+  MoveTo_(50,50);
+  MoveTo_(50,100);
+  MoveTo_(50,150);
+  penUp_();
+
+  // ------ home
   MoveTo_(0.0000, 0.0000);
 }

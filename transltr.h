@@ -16,8 +16,6 @@ typedef struct InvKVals {
   float ang_2;
 } InvKVals;
 
-
-
 extern void initUART_();
 extern void initGPIO_();
 extern void initClockTo8MHz_();
@@ -32,4 +30,5 @@ extern int max(int a, int b);
 extern long mapRange_(long x, long in_min, long in_max, long out_min, long out_max);
 extern void abc();
 extern void radials();
+extern void target();
 #endif
