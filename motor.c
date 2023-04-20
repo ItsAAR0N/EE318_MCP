@@ -88,14 +88,12 @@ void initialiseGPIOs_()
   P1SEL0 |= BIT0 | BIT1;
 }
 
-void initialiseTimer_()
+void initialiseTimerPWM_()
 {
   // Timer TA1 setup
-  TA1CCR0 = TimerA1_period; // PWM Period
-  TA1CCTL2 = OUTMOD_7; // CCR1 reset/set                      
-  TA1CTL = TASSEL_2 | MC_1; // SMCLK, up mode
-
-
+  TA1CCR0 = TimerA1_period;             // PWM Period
+  TA1CCTL2 = OUTMOD_7;                  // CCR1 reset/set                      
+  TA1CTL = TASSEL_2 | MC_1;             // SMCLK, up mode
 }
 
 void initialiseADCpot_()
@@ -148,12 +146,12 @@ void stepMotor1_(int init_Steps1, int n_Steps1, bool dir1) {
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, DIRpin1);         // Set clockwise direction
     // Step motor 1
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, STEPpin1);       
-    delay_us(20000); // rounded_time_del 25000
+    delay_us(10000); // rounded_time_del 25000
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, STEPpin1);
   } else {
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, DIRpin1);          // Set anti-clockwise direction
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, STEPpin1);       
-    delay_us(20000); // rounded_time_del 25000
+    delay_us(10000); // rounded_time_del 25000
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, STEPpin1);
   }
   i++;
@@ -179,12 +177,12 @@ void stepMotor2_(int init_Steps2, int n_Steps2, bool dir2) {
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, DIRpin2);         // Set clockwise direction
     // Step motor 2
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, STEPpin2);       
-    delay_us(20000); // rounded_time_del 25000
+    delay_us(10000); // rounded_time_del 25000
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, STEPpin2);
   } else {
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, DIRpin2);          // Set anti-clockwise direction
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, STEPpin2);       
-    delay_us(20000); // rounded_time_del 25000
+    delay_us(10000); // rounded_time_del 25000
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, STEPpin2);
   }
   i++;

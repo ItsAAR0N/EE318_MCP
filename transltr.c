@@ -24,6 +24,8 @@ Aaron Shek, @ 2023 University of Strathclyde
 //#define SPACING 110
 #define ARM 195
 #define SCALE_FACTOR 1
+#define X_OFFSET 0
+#define Y_OFFSET 0
 
 // ---- LED setup ----
 #define LED_OUT P1OUT
@@ -35,7 +37,6 @@ Aaron Shek, @ 2023 University of Strathclyde
 #define M2 2
 #define CW 1                            // Motor directions
 #define CCW 0
-
 // ---- UART interface ----
 #define SMCLK_115200 0
 #define SMCLK_9600 1
@@ -61,33 +62,34 @@ int32_t  STEPS2;
 // ---- Calculate Delays ----
 long DELAY1;
 long DELAY2;
+long DELAY_MIN = 20000; // Minimum inter-step delay (uS) between motor steps
 
 // ---- Timer delay ---- 
 volatile uint32_t timer_count = 0;
 
-void init_timer() {
-  // Set up Timer_A with SMCLK as clock source, divide by 1, up mode, and enable interrupt
-  TA0CTL = TASSEL_2 | ID_0 | MC_1 | TACLR | TAIE;
-  TA0CCR0 = 15; // Set the compare register to 15 for a 1us period
-}
+// ---- Timer count ---- 
+unsigned int count = 0;
+static uint32_t start_time = 0;
+static float elapsed_time = 0.0;
+static bool is_running = false;
 
-#pragma vector = TIMER0_A1_VECTOR
-__interrupt void TIMERA0_ISR1(void)
+#pragma vector = TIMER0_A0_VECTOR
+__interrupt void TimerA0_ISR0(void)
 {
-  switch(__even_in_range(TA0IV,10))     // Clears the flag
-  {
-    case TA0IV_TAIFG:
-      timer_count += TA0CCR0;
-      TA0CCR0 += 15;                    // Increment TA0CCR0 by 15 for the next interrupt
-      break;
-    default:
-      break;
-  }
+  count++;
 }
 
-float micros() {
-  float time_seconds = timer_count / (float)(16000000); // assuming 16MHz SMCLK frequency and prescaler of 1
-  return time_seconds * 1000000;                        // convert to microseconds
+void initialiseTimerMicros_()
+{
+  // Timer TA0 setup
+  TA0CTL = TASSEL_2 | ID_0 | MC_2 | TACLR;     // SMCLK, Divider 1, Continuous mode, Clear timer
+  TA0CCTL0 = CCIE;                             // Enable Timer TA0 interrupt
+  start_time = count / (16000000UL / 1000000UL); // Record the start time in microseconds
+}
+
+float Micros_() {
+  elapsed_time = (float)(count) / (float)16000000.0 * 1000000.0; // 16 MHz SMCLK, 1 tick = 62.5 ns
+  return elapsed_time - (float)(start_time);
 }
 
 // UART initialisation
@@ -163,15 +165,15 @@ void processUARTinstr_(char* buffer)
   // Extract G value
   ptr = strstr(buffer, "G");            // Pen up-down
   g_cmd = atoi(ptr+1); 
-  
+  //printf("%f\n",g_cmd);
   // Extract X value
   ptr = strstr(buffer, "X");            // find the "X" character in the string
   x_coord = atoi(ptr+1);                // convert the substring after "X" to an integer
-  
+  printf("%f\n",x_coord);
   // Extract Y value
   ptr = strstr(buffer, "Y"); 
   y_coord = atoi(ptr+1); 
-  
+  printf("%f\n",y_coord);
   MoveTo_(x_coord,y_coord);
 }
 
@@ -205,11 +207,49 @@ InvKVals calc_invK(float x_coord, float y_coord) {
   return result;
 }
 
+void calculateDelays_(long Steps1, long Steps2) {
+  
+  float rotateTime;
+  
+  long minSteps;
+  long maxSteps;
+  long maxDelay;
+  maxSteps = max(Steps1,Steps2);
+  minSteps = min(Steps1,Steps2);
+  // Error prevention
+  if (maxSteps < 1) {
+    maxSteps = 1;
+  }
+  
+  if (minSteps < 1) {
+    minSteps = 1;
+  }
+  
+   // Calculate the total time for completion of one move
+  rotateTime = (float)(maxSteps * DELAY_MIN);
+  
+  // Calculate delay for motor with Minsteps
+  maxDelay = (long)(rotateTime / ((float)minSteps)); 
+  // Assign delays to each motor
+  if (Steps1 > Steps2) {
+      DELAY1 = DELAY_MIN;
+      DELAY2 = maxDelay;
+  } else {
+      DELAY1 = maxDelay;
+      DELAY2 = DELAY_MIN;
+  }
+}
+
 void MoveTo_(float x_coord, float y_coord)
 { 
-  x_coord = x_coord*SCALE_FACTOR;
-  y_coord = y_coord*SCALE_FACTOR;
-  
+  if (x_coord == 0 && y_coord == 0) {
+    x_coord = x_coord*SCALE_FACTOR;
+    y_coord = y_coord*SCALE_FACTOR;
+  } else {  
+    x_coord = (x_coord-X_OFFSET)*SCALE_FACTOR;
+    y_coord = (y_coord-Y_OFFSET)*SCALE_FACTOR;
+  }
+  // ---- Motor steps
   long previousSteps_1 = STEPS1;
   long previousSteps_2 = STEPS2;
 
@@ -218,8 +258,14 @@ void MoveTo_(float x_coord, float y_coord)
   long Steps1;
   long Steps2;
   
+  // ---- Directions
   bool DIR_1; 
   bool DIR_2;
+  
+  // ---- Motor timers
+  long currentTime; 
+  long prevTime1;
+  long prevTime2;
   
   // Calculate steps required
   InvKVals result = calc_invK(x_coord, y_coord); 
@@ -242,47 +288,33 @@ void MoveTo_(float x_coord, float y_coord)
   
   // Step the motors 
   calculateDelays_(Steps1,Steps2);
+  
+  // ---- Repload the timers and counters
+  prevTime1 = Micros_();
+  prevTime2 = Micros_(); 
   int init_Steps1 = Steps1;
   int init_Steps2 = Steps2;
   
   while ((Steps1 != 0) || (Steps2 != 0)) {
-  if (Steps1 > 0) {
-    Steps1--;
-
-    stepMotor1_(init_Steps1,Steps1,DIR_1);
-  }
-  if (Steps2 > 0) {
-    Steps2--;
-    stepMotor2_(init_Steps2,Steps2,DIR_2);
+    // ---- Step M1
+    if (Steps1 > 0) {
+      currentTime = Micros_();  
+      //if (currentTime - prevTime1 > DELAY1) {
+        prevTime1 = currentTime;
+        Steps1--;
+        stepMotor1_(init_Steps1,Steps1,DIR_1);
+      //}
+    }
+    if (Steps2 > 0) {
+      currentTime = Micros_(); 
+      //if (currentTime - prevTime2 > DELAY2) {
+        prevTime2 = currentTime;                        // Reset Timer
+        Steps2--;
+        stepMotor2_(init_Steps2,Steps2,DIR_2);
+      //}
     }
   }
 }
-
-void calculateDelays_(long Steps1, long Steps2) {
-  float rotateTime;
-  
-  long minSteps;
-  long maxSteps;
-  long maxDelay;
-  
-  maxSteps = max(Steps1,Steps2);
-  minSteps = min(Steps1,Steps2);
-  
-  // Error prevention
-  if (maxSteps < 1) {
-    maxSteps = 1;
-  }
-  
-  if (minSteps < 1) {
-    minSteps = 1;
-  }
-  
-  // Calculate the total time for completion of one move
-  rotateTime = maxSteps*20000;
-  DELAY1 = (Steps1 > Steps2) ? 20000 : maxDelay;
-  DELAY2 = (Steps1 > Steps2) ? maxDelay : 20000;
-}
-
 
 int max(int a, int b) {
     return (a > b) ? a : b;

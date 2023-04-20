@@ -84,7 +84,7 @@ void __attribute__ ((interrupt(USCI_A0_VECTOR))) USCI_A0_ISR (void)
       if(bufferIndex >= BUFFER_SIZE || buffer[bufferIndex - 1] == '\n') {
         processUARTinstr_(buffer);
         buffer[bufferIndex] = '\0';             // Null-terminate the string
-        //printf("Received: %s\n", buffer);
+        // printf("Received: %s\n", buffer);
         bufferIndex = 0;                        // Reset buffer for next incoming message  
         memset(buffer, 0, sizeof(buffer));      // Clear the buffer to an empty string
       }
@@ -104,27 +104,33 @@ void main(void)
   // Disable the GPIO power-on default high-impedance mode
   // to activate previously configured port settings 
   
-  // ---- Initialise GPIOS, Timer Module, ADC module ---- 
+  // ---- Initialisation ---- 
   initialiseGPIOs_();
-  initialiseTimer_();
-  initialiseADCpot_();
+  initialiseTimerPWM_();
+  initialiseTimerMicros_();
+  // initialiseADCpot_();
   initUART_();
   initClockTo8MHz_();
   
   // ---- Calculate motor steps to reach (0,0) initially
   calc_invK(0, 0); 
 
-  __enable_interrupt(); 
+  __enable_interrupt();  
   delay_us(6000000);
+  //printf("Current time: %.3f us\n", Micros_());
+  //printf("Current time: %.3f us\n", Micros_());
   // ---- Test scenarios
-  target();
+  //target();
 
   while(true) { 
-    if ((GPIO_getInputPinValue(GPIO_PORT_P1, GPIO_PIN2) == false) || (GPIO_getInputPinValue(GPIO_PORT_P2, GPIO_PIN6) == false)) {
-      CB2buttonAdjust_m_(SW1_interruptFlag_, SW2_interruptFlag_);
-    }
-    ADCCTL0 |= 0x83;                    // ADCENC (ADC enable conversion), ADCSC Start sample and conversion, ADCMSC multiply sample-and-conversion
+    // if ((GPIO_getInputPinValue(GPIO_PORT_P1, GPIO_PIN2) == false) || (GPIO_getInputPinValue(GPIO_PORT_P2, GPIO_PIN6) == false)) {
+    //   CB2buttonAdjust_m_(SW1_interruptFlag_, SW2_interruptFlag_);
+    // }
+    // ADCCTL0 |= 0x83;                    // ADCENC (ADC enable conversion), ADCSC Start sample and conversion, ADCMSC multiply sample-and-conversion
 
+    
+    
+    
     // 200 => 360 degrees, 100 => 180 degrees, 50 => 90 degrees, 25 => 45 degrees, ...
     // True => Clockwise, False => anticlockwise
     

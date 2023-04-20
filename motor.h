@@ -10,7 +10,7 @@ Aaron Shek, @ 2023 University of Strathclyde
 #define HEADER_H
 
 extern void initialiseGPIOs_(); 
-extern void initialiseTimer_();
+extern void initialiseTimerPWM_();
 extern void initialiseADCpot_();
 extern int accel_Val_();
 extern void delay_us(unsigned long delay);

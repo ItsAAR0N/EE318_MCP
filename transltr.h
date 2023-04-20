@@ -19,8 +19,8 @@ typedef struct InvKVals {
 extern void initUART_();
 extern void initGPIO_();
 extern void initClockTo8MHz_();
-extern void init_timer(); 
-extern float micros();
+extern void initialiseTimerMicros_();
+extern float Micros_();
 extern void processUARTinstr_(char* buffer);
 extern InvKVals calc_invK(float x_coord, float y_coord);
 extern void MoveTo_(float x_coord, float y_coord);
