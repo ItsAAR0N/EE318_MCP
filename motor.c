@@ -28,28 +28,21 @@ Aaron Shek, @ 2023 University of Strathclyde
 // ---- Acceleraiton values ---- 
 const int accel_Val = 4000;
 unsigned int rate_ = 1;
+long PULSE_WIDTH = 10000;
 
-// ---- ADC interrupt service routine ---- 
-volatile uint16_t ADC_results[3];
-#pragma vector=ADC_VECTOR           
-__interrupt void ADC_ISR(void)
-{
-  static uint8_t ADC_index = 0;
-  ADC_results[ADC_index] = ADCMEM0; // Store the ADC conversion result
-  
-  ADC_index++;
-  if (ADC_index == 3)
-  {
-    ADC_index = 0; // Reset the ADC index
-    
-    // Process the ADC results here
-    uint16_t rate_1 = mapRange_(ADC_results[0], 0, 1023, 1000, 32000);
-    uint16_t rate_2 = mapRange_(ADC_results[1], 0, 1023, 1000, 32000);
-    uint16_t rate_3 = mapRange_(ADC_results[2], 0, 1023, 1000, 32000);
-    // Do something with the ADC results, such as send them over UART or update a display
-    
-    __bic_SR_register_on_exit(LPM0_bits); // Clear CPUOFF bit from LMP0 to prevent MCU sleeping
-  }
+// ---- ADC interrupt service routine ----     
+#pragma vector=ADC_VECTOR               
+__interrupt void ADC_ISR(void)    
+{    
+  switch(__even_in_range(ADCIV,ADCIV_ADCIFG))    
+  {    
+    case ADCIV_ADCIFG:                  
+    rate_ = mapRange_(ADCMEM0,0,1023,1000,32000);    
+    //printf("%d\n",rate_);    
+    __bic_SR_register_on_exit(LPM0_bits);       // Clear CPUOFF bit from LMP0 to prevent MCU sleeping    
+    //ADC_clearInterrupt(ADC_BASE,ADC_COMPLETED_INTERRUPT);    
+    break;    
+  }    
 }
 
 // ---- Timer Configuration ----
@@ -93,26 +86,26 @@ void initialiseTimerPWM_()
   // Timer TA1 setup
   TA1CCR0 = TimerA1_period;             // PWM Period
   TA1CCTL2 = OUTMOD_7;                  // CCR1 reset/set                      
-  TA1CTL = TASSEL_2 | MC_1;             // SMCLK, up mode
+  TA1CTL = TASSEL_2 | MC_1 | ID_3 ;             // SMCLK, up mode, Divide by 8 because of 8MHz SMCLK
 }
 
-void initialiseADCpot_()
-{
-  // ADC setup
-  // Configure Pin for ADC
-  GPIO_setAsPeripheralModuleFunctionOutputPin(GPIO_PORT_P8,GPIO_PIN1,GPIO_PRIMARY_MODULE_FUNCTION);
-  
-  SYSCFG2 |= ADCPCTL0 | ADCPCTL1 | ADCPCTL9;          // Turn on analogue pin A9 (so it is not a GPIO).
-  
-  // Configure CLock source, operation mode
-  ADCCTL0 |= ADCSHT_2 | ADCON;                          // 16 ADCCLK cycles, turn on ADC.
-  ADCCTL1 |= ADCSHP | ADCCONSEQ_3;                      // ADDCLK = MODOSC; sampling timer; Repeat-sequence-of-channels
-  ADCCTL2 |= ADCRES;                                    // 10 bit conversion results
-  
-  // Configure ADC mux and +ve & -ve references
-  ADCMCTL0 |= ADCINCH_9 | ADCSREF_0;                    // A9, A8, A5 ADC input select; Vref = AVCC    ADCINCH_8 | ADCINCH_5
-  ADCIFG &= ~0x01;                                      //Clear interrupt flag  
-  ADCIE |= ADCIE0;                                      //Enable ADC conversion complete interrupt
+void initialiseADCpot_()	
+{	
+  // ADC setup	
+  // Configure Pin for ADC	
+  GPIO_setAsPeripheralModuleFunctionOutputPin(GPIO_PORT_P8,GPIO_PIN1,GPIO_PRIMARY_MODULE_FUNCTION);	
+    	
+  SYSCFG2 |= ADCPCTL9;          // Turn on analogue pin A9 (so it is not a GPIO).	
+  	
+  // Configure CLock source, operation mode	
+  ADCCTL0 |= ADCSHT_2 | ADCON;  // 16 ADCCLK cycles, turn on ADC.	
+  ADCCTL1 |= ADCSHP;            // ADDCLK = MODOSC; sampling timer	
+  ADCCTL2 |= ADCRES;            // 10 bit conversion results	
+  	
+  // Configure ADC mux and +ve & -ve references	
+  ADCMCTL0 |= ADCINCH_9;        // A9 ADC input select; Vref = AVCC   	
+  ADCIFG &= ~0x01;              //Clear interrupt flag  	
+  ADCIE |= ADCIE0;              //Enable ADC conversion complete interrupt	
 }
 
 int accel_Val_()
@@ -146,12 +139,12 @@ void stepMotor1_(int init_Steps1, int n_Steps1, bool dir1) {
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, DIRpin1);         // Set clockwise direction
     // Step motor 1
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, STEPpin1);       
-    delay_us(10000); // rounded_time_del 25000
+    delay_us(PULSE_WIDTH); // rounded_time_del 25000
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, STEPpin1);
   } else {
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, DIRpin1);          // Set anti-clockwise direction
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, STEPpin1);       
-    delay_us(10000); // rounded_time_del 25000
+    delay_us(PULSE_WIDTH); // rounded_time_del 25000
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, STEPpin1);
   }
   i++;
@@ -166,7 +159,7 @@ void stepMotor2_(int init_Steps2, int n_Steps2, bool dir2) {
   int rounded_time_del = 0;
   //ADCCTL0 |= 0x03;
         
-  if (i < n_Steps2/2) {                                     // One half accel, the other half decel
+  if (i < init_Steps2/2) {                                     // One half accel, the other half decel
     time_del = pos_Accel_(time_del);                        // Take in initial time delay 
   } else {
     time_del = neg_Accel_(time_del); 
@@ -177,12 +170,12 @@ void stepMotor2_(int init_Steps2, int n_Steps2, bool dir2) {
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, DIRpin2);         // Set clockwise direction
     // Step motor 2
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, STEPpin2);       
-    delay_us(10000); // rounded_time_del 25000
+    delay_us(PULSE_WIDTH); // rounded_time_del 25000
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, STEPpin2);
   } else {
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, DIRpin2);          // Set anti-clockwise direction
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, STEPpin2);       
-    delay_us(10000); // rounded_time_del 25000
+    delay_us(PULSE_WIDTH); // rounded_time_del 25000
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, STEPpin2);
   }
   i++;
@@ -194,31 +187,36 @@ void stepMotor1Basic_(bool DIR_1) {
   
   if (DIR_1 == CW) {
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, GPIO_PIN6); // Set clockwise
+    delay_us(PULSE_WIDTH);
     // Step Motor
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, GPIO_PIN7);
-    delay_us(20000);
+    delay_us(PULSE_WIDTH);
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN7);
   } else {
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN6); // Set anti-clockwise
+    delay_us(PULSE_WIDTH);
     // Step motor
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, GPIO_PIN7);
-    delay_us(20000);
+    delay_us(PULSE_WIDTH);
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN7);
+    delay_us(PULSE_WIDTH);
   }
 }
 
 void stepMotor2Basic_(bool DIR_2) {
   if (DIR_2 == CW) {
-    GPIO_setOutputHighOnPin(GPIO_PORT_P1, GPIO_PIN4); // Set clsockwise
+    GPIO_setOutputHighOnPin(GPIO_PORT_P1, GPIO_PIN4); // Set clockwise
+    delay_us(PULSE_WIDTH);
     // Step Motor
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, GPIO_PIN3);
-    delay_us(20000);
+    delay_us(PULSE_WIDTH);
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN3);
   } else {
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN4); // Set anti-clockwise
+    delay_us(PULSE_WIDTH);
     // Step motor
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, GPIO_PIN3);
-    delay_us(20000);
+    delay_us(PULSE_WIDTH);
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN3); 
   }
 }
@@ -247,6 +245,7 @@ void penUp_() {
   TA1CCR2 = 2080;
   for (int i = 0; i < 10; i++) {        // Wait for servo to reach position
     __delay_cycles(500);
+    
   }
 }
 

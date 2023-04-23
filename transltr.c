@@ -62,34 +62,36 @@ int32_t  STEPS2;
 // ---- Calculate Delays ----
 long DELAY1;
 long DELAY2;
-long DELAY_MIN = 20000; // Minimum inter-step delay (uS) between motor steps
+long DELAY_MIN = 2983995; // Minimum inter-step delay (uS) between motor steps
 
 // ---- Timer delay ---- 
-volatile uint32_t timer_count = 0;
+volatile uint64_t timer_count = 0;
 
 // ---- Timer count ---- 
-unsigned int count = 0;
-static uint32_t start_time = 0;
-static float elapsed_time = 0.0;
+unsigned long count = 0;
+static uint64_t start_time = 0;
+static long elapsed_time = 0.0;
 static bool is_running = false;
 
+volatile unsigned long micros_counter = 0;
+
 #pragma vector = TIMER0_A0_VECTOR
-__interrupt void TimerA0_ISR0(void)
+__interrupt void Timer_A0_ISR(void)
 {
-  count++;
+  micros_counter += 1000;
 }
 
 void initialiseTimerMicros_()
 {
   // Timer TA0 setup
-  TA0CTL = TASSEL_2 | ID_0 | MC_2 | TACLR;     // SMCLK, Divider 1, Continuous mode, Clear timer
-  TA0CCTL0 = CCIE;                             // Enable Timer TA0 interrupt
-  start_time = count / (16000000UL / 1000000UL); // Record the start time in microseconds
+  TA0CTL = TASSEL_1 + ID_3 + MC_1; // select ACLK as clock source, divide by 8, and set to up mode
+  TA0CCR0 = 1000; // set the compare register value to 1000
+  TA0CCTL0 = CCIE; // enable the compare interrupt
 }
 
-float Micros_() {
-  elapsed_time = (float)(count) / (float)16000000.0 * 1000000.0; // 16 MHz SMCLK, 1 tick = 62.5 ns
-  return elapsed_time - (float)(start_time);
+long Micros_()
+{
+  return micros_counter;
 }
 
 // UART initialisation
@@ -165,7 +167,7 @@ void processUARTinstr_(char* buffer)
   // Extract G value
   ptr = strstr(buffer, "G");            // Pen up-down
   g_cmd = atoi(ptr+1); 
-  //printf("%f\n",g_cmd);
+  printf("%f\n",g_cmd);
   // Extract X value
   ptr = strstr(buffer, "X");            // find the "X" character in the string
   x_coord = atoi(ptr+1);                // convert the substring after "X" to an integer
@@ -174,6 +176,9 @@ void processUARTinstr_(char* buffer)
   ptr = strstr(buffer, "Y"); 
   y_coord = atoi(ptr+1); 
   printf("%f\n",y_coord);
+  if (g_cmd == 1) {
+    penUp_();
+  } else penDown_();
   MoveTo_(x_coord,y_coord);
 }
 
@@ -214,6 +219,7 @@ void calculateDelays_(long Steps1, long Steps2) {
   long minSteps;
   long maxSteps;
   long maxDelay;
+  // Find maxima and minima 
   maxSteps = max(Steps1,Steps2);
   minSteps = min(Steps1,Steps2);
   // Error prevention
@@ -230,14 +236,10 @@ void calculateDelays_(long Steps1, long Steps2) {
   
   // Calculate delay for motor with Minsteps
   maxDelay = (long)(rotateTime / ((float)minSteps)); 
+  
   // Assign delays to each motor
-  if (Steps1 > Steps2) {
-      DELAY1 = DELAY_MIN;
-      DELAY2 = maxDelay;
-  } else {
-      DELAY1 = maxDelay;
-      DELAY2 = DELAY_MIN;
-  }
+  DELAY1 = (Steps1 > Steps2) ? DELAY_MIN : maxDelay; 
+  DELAY2 = (Steps1 > Steps2) ? maxDelay: DELAY_MIN;
 }
 
 void MoveTo_(float x_coord, float y_coord)
@@ -253,8 +255,8 @@ void MoveTo_(float x_coord, float y_coord)
   long previousSteps_1 = STEPS1;
   long previousSteps_2 = STEPS2;
 
-  int32_t currentSteps_1;
-  int32_t currentSteps_2;
+  long currentSteps_1;
+  long currentSteps_2;
   long Steps1;
   long Steps2;
   
@@ -266,6 +268,8 @@ void MoveTo_(float x_coord, float y_coord)
   long currentTime; 
   long prevTime1;
   long prevTime2;
+  long deltaT1; 
+  long deltaT2;
   
   // Calculate steps required
   InvKVals result = calc_invK(x_coord, y_coord); 
@@ -286,12 +290,13 @@ void MoveTo_(float x_coord, float y_coord)
       DIR_2 = CCW;
   }
   
-  // Step the motors 
+  // Calculate motor delays for additional steps
   calculateDelays_(Steps1,Steps2);
   
-  // ---- Repload the timers and counters
+  // ---- Reload the timers and counters
   prevTime1 = Micros_();
   prevTime2 = Micros_(); 
+  //printf("Prev time: %f s\n", Micros_());
   int init_Steps1 = Steps1;
   int init_Steps2 = Steps2;
   
@@ -299,21 +304,27 @@ void MoveTo_(float x_coord, float y_coord)
     // ---- Step M1
     if (Steps1 > 0) {
       currentTime = Micros_();  
-      //if (currentTime - prevTime1 > DELAY1) {
+      deltaT1 = currentTime - prevTime1;
+      //printf("%lu\n",deltaT1);
+      if (deltaT1 > DELAY1) {
         prevTime1 = currentTime;
         Steps1--;
         stepMotor1_(init_Steps1,Steps1,DIR_1);
-      //}
+      }
     }
     if (Steps2 > 0) {
       currentTime = Micros_(); 
-      //if (currentTime - prevTime2 > DELAY2) {
+      deltaT2 = currentTime - prevTime2;
+      if (deltaT2 > DELAY2) {
         prevTime2 = currentTime;                        // Reset Timer
         Steps2--;
         stepMotor2_(init_Steps2,Steps2,DIR_2);
-      //}
+      }
     }
   }
+  
+  
+  
 }
 
 int max(int a, int b) {
@@ -625,4 +636,186 @@ void target()
 
   // ------ home
   MoveTo_(0.0000, 0.0000);
+}
+
+void HilbertCurve_() 
+{
+  MoveTo_(12.209328, 5.391146);
+  MoveTo_(12.292898, 17.903877);
+  MoveTo_(13.025446, 19.790744);
+  MoveTo_(14.512741, 20.922863);
+  MoveTo_(17.632273, 21.253228);
+  MoveTo_(19.963108, 20.348316);
+  MoveTo_(21.044302, 18.656012);
+  MoveTo_(21.876090, 14.094888);
+  MoveTo_(24.564711, 12.315097);
+  MoveTo_(36.597565, 12.397361);
+  MoveTo_(38.665936, 13.718821);
+  MoveTo_(39.470303, 16.304285);
+  MoveTo_(38.306844, 20.202067);
+  MoveTo_(32.083450, 21.991000);
+  MoveTo_(30.412038, 25.250251);
+  MoveTo_(30.647081, 27.746921);
+  MoveTo_(31.728275, 29.439225);
+  MoveTo_(37.178642, 30.768519);
+  MoveTo_(38.906202, 32.276706);
+  MoveTo_(39.376286, 36.217580);
+  MoveTo_(37.694429, 38.850053);
+  MoveTo_(35.239544, 39.476832);
+  MoveTo_(24.184727, 39.294021);
+  MoveTo_(21.876090, 37.596494);
+  MoveTo_(20.965955, 32.805551);
+  MoveTo_(19.414676, 30.966999);
+  MoveTo_(15.093817, 30.579180);
+  MoveTo_(12.586701, 32.694559);
+  MoveTo_(12.632404, 46.377931);
+  MoveTo_(14.512741, 48.195591);
+  MoveTo_(19.790744, 49.389083);
+  MoveTo_(21.279344, 52.522978);
+  MoveTo_(20.045373, 56.640134);
+  MoveTo_(14.195434, 58.186189);
+  MoveTo_(12.367328, 60.672413);
+  MoveTo_(12.367328, 72.837151);
+  MoveTo_(13.546456, 74.893770);
+  MoveTo_(16.017011, 75.813047);
+  MoveTo_(20.125026, 74.747522);
+  MoveTo_(21.991000, 68.447086);
+  MoveTo_(25.250251, 66.775675);
+  MoveTo_(27.746921, 67.010717);
+  MoveTo_(29.439225, 68.091911);
+  MoveTo_(30.768519, 73.542278);
+  MoveTo_(32.276706, 75.269838);
+  MoveTo_(36.085695, 75.762121);
+  MoveTo_(38.729920, 74.246099);
+  MoveTo_(39.476832, 71.603180);
+  MoveTo_(39.104682, 59.967286);
+  MoveTo_(37.287022, 58.086949);
+  MoveTo_(32.083450, 56.973110);
+  MoveTo_(30.474716, 54.267514);
+  MoveTo_(31.207265, 50.082457);
+  MoveTo_(34.633657, 48.578187);
+  MoveTo_(53.713859, 48.593857);
+  MoveTo_(57.031871, 50.360590);
+  MoveTo_(57.652121, 53.568916);
+  MoveTo_(56.711952, 56.326744);
+  MoveTo_(55.019649, 57.407938);
+  MoveTo_(50.559070, 58.186189);
+  MoveTo_(48.793643, 60.426924);
+  MoveTo_(48.605609, 72.038008);
+  MoveTo_(50.265268, 75.154928);
+  MoveTo_(53.271196, 75.844385);
+  MoveTo_(56.154380, 75.029573);
+  MoveTo_(57.370070, 73.317682);
+  MoveTo_(58.416008, 68.354375);
+  MoveTo_(61.758830, 66.766534);
+  MoveTo_(64.226773, 67.048585);
+  MoveTo_(65.802861, 68.091911);
+  MoveTo_(67.132155, 73.542278);
+  MoveTo_(68.740889, 75.323375);
+  MoveTo_(72.710490, 75.715112);
+  MoveTo_(75.269838, 73.960131);
+  MoveTo_(75.844385, 71.453014);
+  MoveTo_(75.468318, 59.967286);
+  MoveTo_(73.650659, 58.086949);
+  MoveTo_(68.176787, 56.781159);
+  MoveTo_(66.754782, 53.118419);
+  MoveTo_(68.176787, 49.455678);
+  MoveTo_(73.650659, 48.149888);
+  MoveTo_(75.422615, 46.377931);
+  MoveTo_(75.468318, 32.694559);
+  MoveTo_(72.961201, 30.579180);
+  MoveTo_(68.640343, 30.966999);
+  MoveTo_(67.089064, 32.805551);
+  MoveTo_(66.122780, 37.694429);
+  MoveTo_(63.746242, 39.324054);
+  MoveTo_(52.667921, 39.470303);
+  MoveTo_(49.994969, 38.599341);
+  MoveTo_(48.619972, 35.814091);
+  MoveTo_(49.204966, 32.178772);
+  MoveTo_(50.987369, 30.725428);
+  MoveTo_(56.154380, 29.575027);
+  MoveTo_(57.658650, 26.148635);
+  MoveTo_(57.329591, 23.714642);
+  MoveTo_(56.241868, 22.182951);
+  MoveTo_(50.876377, 20.922863);
+  MoveTo_(49.095280, 19.314130);
+  MoveTo_(48.760998, 15.093817);
+  MoveTo_(50.767997, 12.632404);
+  MoveTo_(64.559749, 12.632404);
+  MoveTo_(66.331706, 14.404360);
+  MoveTo_(67.637496, 19.878232);
+  MoveTo_(71.300237, 21.300237);
+  MoveTo_(74.962977, 19.878232);
+  MoveTo_(76.268767, 14.404360);
+  MoveTo_(78.149105, 12.586701);
+  MoveTo_(89.784998, 12.214551);
+  MoveTo_(92.427917, 12.961463);
+  MoveTo_(93.963526, 15.740183);
+  MoveTo_(93.336747, 19.607933);
+  MoveTo_(91.499500, 21.006434);
+  MoveTo_(86.628904, 21.991000);
+  MoveTo_(84.983609, 24.968200);
+  MoveTo_(85.157279, 36.719004);
+  MoveTo_(86.536193, 38.729920);
+  MoveTo_(89.179112, 39.476832);
+  MoveTo_(92.929340, 38.306844);
+  MoveTo_(94.718272, 32.083450);
+  MoveTo_(97.977524, 30.412038);
+  MoveTo_(100.474194, 30.647081);
+  MoveTo_(102.166498, 31.728275);
+  MoveTo_(103.495792, 37.178642);
+  MoveTo_(105.003979, 38.906202);
+  MoveTo_(108.944853, 39.376286);
+  MoveTo_(111.577325, 37.694429);
+  MoveTo_(112.204104, 35.239544);
+  MoveTo_(112.051327, 24.308777);
+  MoveTo_(110.421701, 21.932239);
+  MoveTo_(105.532824, 20.965955);
+  MoveTo_(103.694272, 19.414676);
+  MoveTo_(103.306452, 15.093817);
+  MoveTo_(105.532824, 12.543610);
+  MoveTo_(119.105204, 12.632404);
+  MoveTo_(120.922863, 14.512741);
+  MoveTo_(122.052372, 19.700644);
+  MoveTo_(125.107920, 21.267592);
+  MoveTo_(129.292977, 20.125026);
+  MoveTo_(130.966999, 14.094888);
+  MoveTo_(133.526347, 12.339907);
+  MoveTo_(145.809913, 12.430006);
+  MoveTo_(147.882201, 13.901631);
+  MoveTo_(148.572964, 16.754782);
+  MoveTo_(147.397753, 20.202067);
+  MoveTo_(141.174359, 21.991000);
+  MoveTo_(139.502948, 25.250251);
+  MoveTo_(139.737990, 27.746921);
+  MoveTo_(140.819184, 29.439225);
+  MoveTo_(146.269551, 30.768519);
+  MoveTo_(147.997111, 32.276706);
+  MoveTo_(148.467195, 36.217580);
+  MoveTo_(146.880660, 38.791292);
+  MoveTo_(144.180287, 39.480749);
+  MoveTo_(132.694559, 39.104682);
+  MoveTo_(130.814222, 37.287022);
+  MoveTo_(129.700383, 32.083450);
+  MoveTo_(126.994786, 30.474716);
+  MoveTo_(122.809730, 31.207265);
+  MoveTo_(121.305460, 34.633657);
+  MoveTo_(121.321129, 53.713859);
+  MoveTo_(123.087863, 57.031871);
+  MoveTo_(126.296189, 57.652121);
+  MoveTo_(129.054017, 56.711952);
+  MoveTo_(130.135211, 55.019649);
+  MoveTo_(130.913462, 50.559070);
+  MoveTo_(133.154197, 48.793643);
+  MoveTo_(144.765281, 48.605609);
+  MoveTo_(147.882201, 50.265268);
+  MoveTo_(148.571658, 53.271196);
+  MoveTo_(147.756845, 56.154380);
+  MoveTo_(146.044955, 57.370070);
+  MoveTo_(141.081648, 58.416008);
+  MoveTo_(139.493807, 61.758830);
+  MoveTo_(139.775858, 64.226773);
+ 
+
+ 
 }

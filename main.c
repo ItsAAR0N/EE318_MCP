@@ -20,7 +20,6 @@ Aaron Shek, @ 2023 University of Strathclyde
 #define M1 1
 #define M2 2
 #define RADTODEG 57.2958        // 1 Rad = 57.3 degrees
-#define STEPSPERDEG 200/360    // 1.8 deg/step
 #define STEP_PIN BIT7           // Motor 1
 #define DIR_PIN BIT6
 #define STEP_PIN_2 BIT4         // Motor 2
@@ -108,34 +107,38 @@ void main(void)
   initialiseGPIOs_();
   initialiseTimerPWM_();
   initialiseTimerMicros_();
-  // initialiseADCpot_();
+  initialiseADCpot_();
   initUART_();
   initClockTo8MHz_();
   
   // ---- Calculate motor steps to reach (0,0) initially
   calc_invK(0, 0); 
-
+  
   __enable_interrupt();  
-  delay_us(6000000);
-  //printf("Current time: %.3f us\n", Micros_());
-  //printf("Current time: %.3f us\n", Micros_());
-  // ---- Test scenarios
-  //target();
 
+  printf("Current time: %lu us\n", Micros_());
+  
+  // ---- Test scenarios
+  delay_us(6000000);
+  printf("Current time: %lu us\n", Micros_());
+  //radials();
+  // for (int i = 0; i <= 100; i++) {
+  //   MoveTo_(i,i);
+  // }
+  HilbertCurve_();
+  //printf("Current time: %ul \n", Micros_());
   while(true) { 
-    // if ((GPIO_getInputPinValue(GPIO_PORT_P1, GPIO_PIN2) == false) || (GPIO_getInputPinValue(GPIO_PORT_P2, GPIO_PIN6) == false)) {
-    //   CB2buttonAdjust_m_(SW1_interruptFlag_, SW2_interruptFlag_);
-    // }
+    if ((GPIO_getInputPinValue(GPIO_PORT_P1, GPIO_PIN2) == false) || (GPIO_getInputPinValue(GPIO_PORT_P2, GPIO_PIN6) == false)) {
+    CB2buttonAdjust_m_(SW1_interruptFlag_, SW2_interruptFlag_);
+    }
     // ADCCTL0 |= 0x83;                    // ADCENC (ADC enable conversion), ADCSC Start sample and conversion, ADCMSC multiply sample-and-conversion
 
-    
-    
-    
     // 200 => 360 degrees, 100 => 180 degrees, 50 => 90 degrees, 25 => 45 degrees, ...
     // True => Clockwise, False => anticlockwise
     
     // ---- Control examples ----
-    // penManualControl_();
+    penManualControl_();
+    __delay_cycles(10000);
   } 
   // Indicator LED
   P4OUT ^= LED_PIN;
