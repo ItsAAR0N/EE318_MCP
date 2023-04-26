@@ -24,6 +24,7 @@ extern long Micros_();
 extern void processUARTinstr_(char* buffer);
 extern InvKVals calc_invK(float x_coord, float y_coord);
 extern void MoveTo_(float x_coord, float y_coord);
+extern long calculateDelay_(long Steps1, long Steps2);
 extern void calculateDelays_(long Steps1, long Steps2);
 extern int min(int a, int b); 
 extern int max(int a, int b);

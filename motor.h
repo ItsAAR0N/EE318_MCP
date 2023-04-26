@@ -10,14 +10,17 @@ Aaron Shek, @ 2023 University of Strathclyde
 #define HEADER_H
 
 extern void initialiseGPIOs_(); 
+extern void initialiseTimerADC_();
 extern void initialiseTimerPWM_();
+extern void initialiseADCMultiChannel_(); 
 extern void initialiseADCpot_();
 extern int accel_Val_();
 extern void delay_us(unsigned long delay);
-extern void stepMotor1_(int init_Steps1, int n_Steps1, bool dir1);
-extern void stepMotor2_(int init_Steps2, int n_Steps2, bool dir2);
+extern void stepMotor1_(int init_Steps1, int n_Steps1, bool dir1, long M1_delay);
+extern void stepMotor2_(int init_Steps2, int n_Steps2, bool dir2, long M2_delay);
 extern void stepMotor1Basic_(bool DIR_1);
 extern void stepMotor2Basic_(bool DIR_2);
+extern void ADCReadJoystick_();
 extern void penManualControl_();
 extern void penUp_();
 extern void penDown_();

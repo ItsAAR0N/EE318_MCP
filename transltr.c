@@ -22,7 +22,7 @@ Aaron Shek, @ 2023 University of Strathclyde
 // ---- Physical dimensions ----
 //#define WIDTH 300
 //#define SPACING 110
-#define ARM 195
+#define ARM 190
 #define SCALE_FACTOR 1
 #define X_OFFSET 0
 #define Y_OFFSET 0
@@ -45,9 +45,9 @@ Aaron Shek, @ 2023 University of Strathclyde
 // ---- Dimension calculations ----
 // const float offset_1 = (WIDTH / 2) - (SPACING / 2);             // M1 offset
 // const float offset_2 = (WIDTH / 2) - (SPACING / 2) + SPACING;   // M2 
-const float offset_1 = 78;
-const float offset_2 = 187;
-const float space_dim_Y = 337;                                  // Length of sheet
+const float offset_1 = 105;
+const float offset_2 = 215;
+const float space_dim_Y = 300;                                  // Length of sheet
 const float length_arm = ARM;
 // const float YAXIS = 345;                // Motor distance to (0,0)
 
@@ -62,7 +62,7 @@ int32_t  STEPS2;
 // ---- Calculate Delays ----
 long DELAY1;
 long DELAY2;
-long DELAY_MIN = 2983995; // Minimum inter-step delay (uS) between motor steps
+long DELAY_MIN = 10000; // Minimum inter-step delay (uS) between motor steps
 
 // ---- Timer delay ---- 
 volatile uint64_t timer_count = 0;
@@ -208,8 +208,18 @@ InvKVals calc_invK(float x_coord, float y_coord) {
   STEPS1 = result.ang_1*RADTODEG*STEPSPERDEG; 
 
   STEPS2 = result.ang_2*RADTODEG*STEPSPERDEG;   
-
+  
+  
+  
   return result;
+}
+
+long calculateDelay_(long Steps1, long Steps2) {
+  long M1delay = DELAY_MIN; // 10000
+  long Mdelay; 
+  if (Steps1 > Steps2) {
+    return Mdelay = (Steps1*M1delay)/Steps2;
+  }
 }
 
 void calculateDelays_(long Steps1, long Steps2) {
@@ -294,32 +304,41 @@ void MoveTo_(float x_coord, float y_coord)
   calculateDelays_(Steps1,Steps2);
   
   // ---- Reload the timers and counters
-  prevTime1 = Micros_();
-  prevTime2 = Micros_(); 
+  //prevTime1 = Micros_();
+  //prevTime2 = Micros_(); 
   //printf("Prev time: %f s\n", Micros_());
   int init_Steps1 = Steps1;
   int init_Steps2 = Steps2;
+  long M1_delay;
+  long M2_delay;
   
+  if (Steps1 > Steps2) {
+    M2_delay = calculateDelay_(Steps1,Steps2);
+  }
+  else M1_delay = calculateDelay_(Steps1,Steps2);
+    
+  
+  // M2_delay = calculateDelay_(Steps1,Steps2);
   while ((Steps1 != 0) || (Steps2 != 0)) {
     // ---- Step M1
     if (Steps1 > 0) {
-      currentTime = Micros_();  
-      deltaT1 = currentTime - prevTime1;
+      // currentTime = Micros_();  
+      // deltaT1 = currentTime - prevTime1;
       //printf("%lu\n",deltaT1);
-      if (deltaT1 > DELAY1) {
-        prevTime1 = currentTime;
+      // if (deltaT1 > DELAY1) {
+        // prevTime1 = currentTime;
         Steps1--;
-        stepMotor1_(init_Steps1,Steps1,DIR_1);
-      }
+        stepMotor1_(init_Steps1,Steps1,DIR_1,M1_delay);
+      // }
     }
     if (Steps2 > 0) {
-      currentTime = Micros_(); 
-      deltaT2 = currentTime - prevTime2;
-      if (deltaT2 > DELAY2) {
-        prevTime2 = currentTime;                        // Reset Timer
+      // currentTime = Micros_(); 
+      // deltaT2 = currentTime - prevTime2;
+      // if (deltaT2 > DELAY2) {
+        // prevTime2 = currentTime;                        // Reset Timer
         Steps2--;
-        stepMotor2_(init_Steps2,Steps2,DIR_2);
-      }
+        stepMotor2_(init_Steps2,Steps2,DIR_2,M2_delay);
+      // }
     }
   }
   
