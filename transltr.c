@@ -167,15 +167,15 @@ void processUARTinstr_(char* buffer)
   // Extract G value
   ptr = strstr(buffer, "G");            // Pen up-down
   g_cmd = atoi(ptr+1); 
-  printf("%f\n",g_cmd);
+  // printf("%f\n",g_cmd);
   // Extract X value
   ptr = strstr(buffer, "X");            // find the "X" character in the string
   x_coord = atoi(ptr+1);                // convert the substring after "X" to an integer
-  printf("%f\n",x_coord);
+  // printf("%f\n",x_coord);
   // Extract Y value
   ptr = strstr(buffer, "Y"); 
   y_coord = atoi(ptr+1); 
-  printf("%f\n",y_coord);
+  // printf("%f\n",y_coord);
   if (g_cmd == 1) {
     penUp_();
   } else penDown_();
@@ -312,10 +312,10 @@ void MoveTo_(float x_coord, float y_coord)
   long M1_delay;
   long M2_delay;
   
-  if (Steps1 > Steps2) {
-    M2_delay = calculateDelay_(Steps1,Steps2);
-  }
-  else M1_delay = calculateDelay_(Steps1,Steps2);
+  // if (Steps1 > Steps2) {
+  //   M2_delay = calculateDelay_(Steps1,Steps2);
+  // }
+  // else M1_delay = calculateDelay_(Steps1,Steps2);
     
   
   // M2_delay = calculateDelay_(Steps1,Steps2);
@@ -328,7 +328,7 @@ void MoveTo_(float x_coord, float y_coord)
       // if (deltaT1 > DELAY1) {
         // prevTime1 = currentTime;
         Steps1--;
-        stepMotor1_(init_Steps1,Steps1,DIR_1,M1_delay);
+        stepMotor1_(init_Steps1,Steps1,DIR_1);
       // }
     }
     if (Steps2 > 0) {
@@ -337,7 +337,7 @@ void MoveTo_(float x_coord, float y_coord)
       // if (deltaT2 > DELAY2) {
         // prevTime2 = currentTime;                        // Reset Timer
         Steps2--;
-        stepMotor2_(init_Steps2,Steps2,DIR_2,M2_delay);
+        stepMotor2_(init_Steps2,Steps2,DIR_2);
       // }
     }
   }

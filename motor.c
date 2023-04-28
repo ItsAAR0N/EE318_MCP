@@ -172,7 +172,7 @@ void delay_us(unsigned long delay)
   }
 } 
 
-void stepMotor1_(int init_Steps1, int n_Steps1, bool dir1, long M1_delay) {
+void stepMotor1_(int init_Steps1, int n_Steps1, bool dir1) {
   int i = 0;
   int DIRpin1 = GPIO_PIN6;     // Stepper 1 DIR pin
   int STEPpin1 = GPIO_PIN3;    // Stepper 1 STEP pin
@@ -191,19 +191,19 @@ void stepMotor1_(int init_Steps1, int n_Steps1, bool dir1, long M1_delay) {
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, DIRpin1);         // Set clockwise direction
     // Step motor 1
     GPIO_setOutputHighOnPin(GPIO_PORT_P8, STEPpin1);       
-    delay_us(M1_delay); // rounded_time_del 25000 // PULSE_WIDTH 25000
+    delay_us(10000); // rounded_time_del 25000 // PULSE_WIDTH 25000
     GPIO_setOutputLowOnPin(GPIO_PORT_P8, STEPpin1);
   } else {
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, DIRpin1);          // Set anti-clockwise direction
     GPIO_setOutputHighOnPin(GPIO_PORT_P8, STEPpin1);       
-    delay_us(M1_delay); // rounded_time_del 25000 // PULSE_WIDTH 25000
+    delay_us(10000); // rounded_time_del 25000 // PULSE_WIDTH 25000
     GPIO_setOutputLowOnPin(GPIO_PORT_P8, STEPpin1);
   }
   i++;
 }
 
 
-void stepMotor2_(int init_Steps2, int n_Steps2, bool dir2, long M2_delay) {
+void stepMotor2_(int init_Steps2, int n_Steps2, bool dir2) {
   int i = 0;
   int DIRpin2 = GPIO_PIN4;     // Stepper 2 DIR pin
   int STEPpin2 = GPIO_PIN3;    // Stepper 2 STEP pin
@@ -222,12 +222,12 @@ void stepMotor2_(int init_Steps2, int n_Steps2, bool dir2, long M2_delay) {
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, DIRpin2);         // Set clockwise direction
     // Step motor 2
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, STEPpin2);       
-    delay_us(M2_delay); // PULSE_WIDTH 25000
+    delay_us(10000); // PULSE_WIDTH 25000
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, STEPpin2);
   } else {
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, DIRpin2);          // Set anti-clockwise direction
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, STEPpin2);       
-    delay_us(M2_delay); // rounded_time_del 25000
+    delay_us(10000); // rounded_time_del 25000
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, STEPpin2);
   }
   i++;
@@ -241,16 +241,16 @@ void stepMotor1Basic_(bool DIR_1) {
     GPIO_setOutputHighOnPin(GPIO_PORT_P1, GPIO_PIN6); // Set clockwise
     delay_us(PULSE_WIDTH);
     // Step Motor
-    GPIO_setOutputHighOnPin(GPIO_PORT_P1, GPIO_PIN7);
+    GPIO_setOutputHighOnPin(GPIO_PORT_P8, GPIO_PIN3);
     delay_us(PULSE_WIDTH);
-    GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN7);
+    GPIO_setOutputLowOnPin(GPIO_PORT_P8, GPIO_PIN3);
   } else {
     GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN6); // Set anti-clockwise
     delay_us(PULSE_WIDTH);
     // Step motor
-    GPIO_setOutputHighOnPin(GPIO_PORT_P1, GPIO_PIN7);
+    GPIO_setOutputHighOnPin(GPIO_PORT_P8, GPIO_PIN3);
     delay_us(PULSE_WIDTH);
-    GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN7);
+    GPIO_setOutputLowOnPin(GPIO_PORT_P8, GPIO_PIN3);
     delay_us(PULSE_WIDTH);
   }
 }
