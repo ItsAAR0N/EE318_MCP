@@ -161,24 +161,54 @@ void initClockTo8MHz_()
 void processUARTinstr_(char* buffer)
 {
   // Typical G-Code command as follows: G## X## Y## Z## F##
-  char* ptr;                            // pointer used for string parsing
-  float g_cmd, x_coord, y_coord;        // variables to store X, Y, and Z values
+  char* ptr;                                            // pointer used for string parsing
+  
+  int g_cmd = 0; x_coord = 0 , y_coord = 0;           
+  float x_coord = 0 , y_coord = 0;
   
   // Extract G value
-  ptr = strstr(buffer, "G");            // Pen up-down
-  g_cmd = atoi(ptr+1); 
-  // printf("%f\n",g_cmd);
+  ptr = strstr(buffer, "G");                              // Pen up-down
+  if (ptr != NULL) {
+    g_cmd = atoi(ptr+1);
+  }
+
   // Extract X value
-  ptr = strstr(buffer, "X");            // find the "X" character in the string
-  x_coord = atoi(ptr+1);                // convert the substring after "X" to an integer
-  // printf("%f\n",x_coord);
+  ptr = strstr(buffer, "X");                              // find the "X" character in the string
+  if (ptr != NULL) {
+    x_coord = atoi(ptr+1);                                // convert the substring after "X" to an integer
+  }
   // Extract Y value
   ptr = strstr(buffer, "Y"); 
-  y_coord = atoi(ptr+1); 
-  // printf("%f\n",y_coord);
-  if (g_cmd == 1) {
-    penUp_();
-  } else penDown_();
+  if (ptr != NULL) {   
+    y_coord = atoi(ptr+1); 
+  }
+  
+  switch (g_cmd) {
+  case 0: 
+    penDown_(); 
+    break;
+  case 1: 
+    penUp_(); 
+    break;
+  case 2: 
+    Star_();
+    break;
+  case 3: 
+    Triangle_();
+    break;
+  case 4: 
+    Rectangle_();
+    break;
+  case 5: 
+    Circle_();
+    break;
+  case 6: 
+    HilbertCurve_();
+    break;
+  case 7: 
+    UoS_();
+    break;
+  }
   MoveTo_(x_coord,y_coord);
 }
 
@@ -322,23 +352,13 @@ void MoveTo_(float x_coord, float y_coord)
   while ((Steps1 != 0) || (Steps2 != 0)) {
     // ---- Step M1
     if (Steps1 > 0) {
-      // currentTime = Micros_();  
-      // deltaT1 = currentTime - prevTime1;
-      //printf("%lu\n",deltaT1);
-      // if (deltaT1 > DELAY1) {
-        // prevTime1 = currentTime;
         Steps1--;
         stepMotor1_(init_Steps1,Steps1,DIR_1);
-      // }
     }
+    // ---- Step M2
     if (Steps2 > 0) {
-      // currentTime = Micros_(); 
-      // deltaT2 = currentTime - prevTime2;
-      // if (deltaT2 > DELAY2) {
-        // prevTime2 = currentTime;                        // Reset Timer
         Steps2--;
         stepMotor2_(init_Steps2,Steps2,DIR_2);
-      // }
     }
   }
   
@@ -655,6 +675,50 @@ void target()
 
   // ------ home
   MoveTo_(0.0000, 0.0000);
+}
+void Star_()
+{
+
+}
+
+void Triangle_()
+{
+  
+}
+
+
+void Circle_()
+{
+
+}
+
+void UoS_()
+{
+
+}
+
+void Square_() 
+{
+  for (int i = 0; i <= 200; i++) 
+  {
+    MoveTo_(i,0);
+    
+  }
+  delay_us(1000000);
+  for (int i = 0; i <= 50; i++) 
+  {
+    MoveTo_(200,i); 
+  }  
+  delay_us(1000000);
+  for (int i = 200; i >= 0; i--) 
+  {
+    MoveTo_(i,50); 
+  }  
+  delay_us(1000000);
+  for (int i = 50; i >= 0; i--) 
+  {
+    MoveTo_(0,i); 
+  }    
 }
 
 void HilbertCurve_() 

@@ -32,5 +32,10 @@ extern long mapRange_(long x, long in_min, long in_max, long out_min, long out_m
 extern void abc();
 extern void radials();
 extern void target();
+extern void Star_();
+extern void Triangle_();
+extern void Rectangle_();
+extern void Circle_();
+extern void UoS_();
 extern void HilbertCurve_();
 #endif

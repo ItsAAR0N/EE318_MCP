@@ -39,45 +39,61 @@ unsigned int channel;
 unsigned int ADC_Result[10];
 
 // ADC interrupt service routine
-#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
-#pragma vector=ADC_VECTOR
+
+// ---- ADC interrupt service routine ---- 
+#pragma vector=ADC_VECTOR           
 __interrupt void ADC_ISR(void)
-#elif defined(__GNUC__)
-void __attribute__ ((interrupt(ADC_VECTOR))) ADC_ISR (void)
-#else
-#error Compiler not supported!
-#endif
 {
-    switch(__even_in_range(ADCIV,ADCIV_ADCIFG))
-    {
-        case ADCIV_NONE: 
-            break;                              
-        case ADCIV_ADCOVIFG: 
-            break;             
-        case ADCIV_ADCTOVIFG: 
-            break;            
-        case ADCIV_ADCHIIFG: 
-            break;             
-        case ADCIV_ADCLOIFG: 
-            break;             
-        case ADCIV_ADCINIFG: 
-            break;             
-        case ADCIV_ADCIFG:
-            ADC_Result[channel] = ADCMEM0;
-            if(channel == 0)
-            {
-                //__no_operation();                               // Only for debugger
-                channel = 9;
-            }
-            else
-            {
-                channel--;
-            }
-            break;                                             
-        default: 
-            break; 
-    }
+  switch(__even_in_range(ADCIV,ADCIV_ADCIFG))
+  {
+    case ADCIV_ADCIFG:              
+    rate_ = mapRange_(ADCMEM0,0,1023,1000,32000);
+    //printf("%d\n",rate_);
+    __bic_SR_register_on_exit(LPM0_bits); // Clear CPUOFF bit from LMP0 to prevent MCU sleeping
+    //ADC_clearInterrupt(ADC_BASE,ADC_COMPLETED_INTERRUPT);
+    break;
+  }
 }
+
+//#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
+//#pragma vector=ADC_VECTOR
+//__interrupt void ADC_ISR(void)
+//#elif defined(__GNUC__)
+//void __attribute__ ((interrupt(ADC_VECTOR))) ADC_ISR (void)
+//#else
+//#error Compiler not supported!
+//#endif
+//{
+//    switch(__even_in_range(ADCIV,ADCIV_ADCIFG))
+//    {
+//        case ADCIV_NONE: 
+//            break;                              
+//        case ADCIV_ADCOVIFG: 
+//            break;             
+//        case ADCIV_ADCTOVIFG: 
+//            break;            
+//        case ADCIV_ADCHIIFG: 
+//            break;             
+//        case ADCIV_ADCLOIFG: 
+//           break;             
+//        case ADCIV_ADCINIFG: 
+//            break;             
+//        case ADCIV_ADCIFG:
+//            ADC_Result[channel] = ADCMEM0;
+//            if(channel == 0)
+//            {
+//                //__no_operation();                               // Only for debugger
+//                channel = 9;
+//            }
+//            else
+//            {
+//                channel--;
+//            }
+//            break;                                             
+//        default: 
+//            break; 
+//    }
+//}
 
 void initialiseGPIOs_()
 {
@@ -178,7 +194,7 @@ void stepMotor1_(int init_Steps1, int n_Steps1, bool dir1) {
   int STEPpin1 = GPIO_PIN3;    // Stepper 1 STEP pin
   float time_del = 0.003;      // Time delay
   int rounded_time_del = 0;
-  // ADCCTL0 |= 0x03;             // ADC sampling
+  ADCCTL0 |= 0x03;             // ADC sampling
         
   if (n_Steps1 < init_Steps1/2) {                           // One half accel, the other half decel
     time_del = pos_Accel_(time_del);                        // Take in initial time delay 
@@ -209,7 +225,7 @@ void stepMotor2_(int init_Steps2, int n_Steps2, bool dir2) {
   int STEPpin2 = GPIO_PIN3;    // Stepper 2 STEP pin
   float time_del = 0.003;      // Time delay
   int rounded_time_del = 0;
-  // ADCCTL0 |= 0x03;             // ADC sampling
+  ADCCTL0 |= 0x03;             // ADC sampling
         
   if (i < init_Steps2/2) {                                     // One half accel, the other half decel
     time_del = pos_Accel_(time_del);                        // Take in initial time delay 

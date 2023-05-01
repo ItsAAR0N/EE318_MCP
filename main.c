@@ -107,13 +107,14 @@ void main(void)
   initialiseGPIOs_();
   
   // ---- Initialise ADC ----
-  initialiseADCMultiChannel_();
-  PMMCTL0_H = PMMPW_H;
-  PMMCTL2 |= INTREFEN;
-  __delay_cycles(400);
-  initialiseTimerADC_();
   
-  //initialiseADCpot_();
+  // initialiseADCMultiChannel_();
+  // PMMCTL0_H = PMMPW_H;
+  // PMMCTL2 |= INTREFEN;
+  // __delay_cycles(400);
+  // initialiseTimerADC_();
+  
+  initialiseADCpot_();
   
   // ---- Initialise other timers ---- 
   initialiseTimerPWM_();
@@ -127,32 +128,26 @@ void main(void)
   calc_invK(0, 0); 
 
   __enable_interrupt();  
-
-  //printf("Current time: %lu us\n", Micros_());
   
   // ---- Test scenarios
-  // delay_us(5000000);
-  //printf("Current time: %lu us\n", Micros_());
-  //radials();
+  delay_us(5000000);
+  // Square_();
   //for (int i = 0; i <= 100; i++) {
-  //MoveTo_(i,i);
+  //  MoveTo_(i,i);
   //}
   
-  // HilbertCurve_();
-  
-  //MoveTo_(0,100);
-  //printf("Current time: %ul \n", Micros_());
   while(true) { 
     if ((GPIO_getInputPinValue(GPIO_PORT_P1, GPIO_PIN2) == false) || (GPIO_getInputPinValue(GPIO_PORT_P2, GPIO_PIN6) == false)) {
     CB2buttonAdjust_m_(SW1_interruptFlag_, SW2_interruptFlag_);
     }
-    ADCReadJoystick_();
+    ADCCTL0 |= 0x03;             // ADC sampling
+    // ADCReadJoystick_();
 
     // 200 => 360 degrees, 100 => 180 degrees, 50 => 90 degrees, 25 => 45 degrees, ...
     // True => Clockwise, False => anticlockwise
-    // printf("x\n");
+
     // ---- Control examples ----
-    penManualControl_();
+    // penManualControl_();
     __delay_cycles(10000);
   } 
   // Indicator LED
