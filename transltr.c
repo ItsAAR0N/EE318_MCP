@@ -194,10 +194,10 @@ void processUARTinstr_(char* buffer)
     Star_();
     break;
   case 3: 
-    Triangle_();
+    Spiral_();
     break;
   case 4: 
-    Rectangle_();
+    Pentagon_();
     break;
   case 5: 
     Circle_();
@@ -681,11 +681,15 @@ void Star_()
 
 }
 
-void Triangle_()
+void Spiral_()
 {
   
 }
 
+void Pentagon_()
+{
+  
+}
 
 void Circle_()
 {
