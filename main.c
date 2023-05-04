@@ -77,13 +77,11 @@ void __attribute__ ((interrupt(USCI_A0_VECTOR))) USCI_A0_ISR (void)
     case USCI_NONE: break;
     case USCI_UART_UCRXIFG:
       while(!(UCA0IFG&UCTXIFG));
-      UCA0TXBUF = UCA0RXBUF;
+      //UCA0TXBUF = UCA0RXBUF;
       buffer[bufferIndex] = UCA0RXBUF;          // Receive char from RX
       bufferIndex++;
       if(bufferIndex >= BUFFER_SIZE || buffer[bufferIndex - 1] == '\n') {
-        processUARTinstr_(buffer);
-        buffer[bufferIndex] = '\0';             // Null-terminate the string
-        // printf("Received: %s\n", buffer);
+          processUARTinstr_(buffer);
         bufferIndex = 0;                        // Reset buffer for next incoming message  
         memset(buffer, 0, sizeof(buffer));      // Clear the buffer to an empty string
       }
@@ -154,26 +152,21 @@ void main(void)
   __enable_interrupt();  
   
   // ---- Test scenarios
-  delay_us(5000000);
-  HilbertCurve_();
+  //delay_us(5000000);
+  //sHilbertCurve_();
   //for (int i = 0; i <= 100; i++) {
   //  MoveTo_(i,i);
   //}
   
-  while(true) { 
-    if ((GPIO_getInputPinValue(GPIO_PORT_P1, GPIO_PIN2) == false) || (GPIO_getInputPinValue(GPIO_PORT_P2, GPIO_PIN6) == false)) {
-    CB2buttonAdjust_m_(SW1_interruptFlag_, SW2_interruptFlag_);
+  while(true) {
+    // Check if there are any commands in the gcode buffer
+    if(gcodeIndex > 0) {
+      // Execute the first command in the buffer
+      MoveTo_(gcodeBuffer[0][0], gcodeBuffer[0][1]);
+      // Clear out the executed command from the buffer
+      clearExecutedCommands();
     }
-    ADCCTL0 |= 0x03;             // ADC sampling
-    // ADCReadJoystick_();
-
-    // 200 => 360 degrees, 100 => 180 degrees, 50 => 90 degrees, 25 => 45 degrees, ...
-    // True => Clockwise, False => anticlockwise
-
-    // ---- Control examples ----
-    // penManualControl_();
-    __delay_cycles(10000);
-  } 
+  }
   // Indicator LED
   P4OUT ^= LED_PIN;
 }

@@ -19,6 +19,11 @@ Aaron Shek, @ 2023 University of Strathclyde
 #define RADTODEG 57.2958 // 1 Rad = 57.3 degrees
 #define STEPSPERDEG 3200/360 // 0.556 degrees per step
 
+// ---- GCODE buffer ---
+//#define MAX_COMMANDS 12
+float gcodeBuffer[MAX_COMMANDS][2];
+volatile uint8_t gcodeIndex = 0;
+
 // ---- Physical dimensions ----
 //#define WIDTH 300
 //#define SPACING 110
@@ -209,7 +214,23 @@ void processUARTinstr_(char* buffer)
     UoS_();
     break;
   }
-  MoveTo_(x_coord,y_coord);
+  if(gcodeIndex < MAX_COMMANDS) {
+    gcodeBuffer[gcodeIndex][0] = x_coord;
+    gcodeBuffer[gcodeIndex][1] = y_coord;
+    gcodeIndex++;
+  }
+}
+
+void clearExecutedCommands() {
+  if(gcodeIndex > 0) {
+    for(int i = 0; i < gcodeIndex - 1; i++) {
+      gcodeBuffer[i][0] = gcodeBuffer[i+1][0];
+      gcodeBuffer[i][1] = gcodeBuffer[i+1][1];
+    }
+    gcodeBuffer[gcodeIndex - 1][0] = 0.0;
+    gcodeBuffer[gcodeIndex - 1][1] = 0.0;
+    gcodeIndex--;
+  }
 }
 
 InvKVals calc_invK(float x_coord, float y_coord) { 

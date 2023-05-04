@@ -12,6 +12,9 @@ Aaron Shek, @ 2023 University of Strathclyde
 #include "motor.h"
 #include "transltr.h"
 
+//---- copied over from main.c
+#define MAX_COMMANDS 12
+
 // ---- Pin configuration  ----
 #define STEP_PIN BIT3 // 1000000
 #define DIR_PIN BIT6 // 0100000

@@ -12,6 +12,7 @@ def send_gcode(file_path, com_port):
         # Read the lines of the file
         lines = f.readlines()
 
+        counter = 0
         # Send each line over the serial connection
         for line in lines:
             # Strip any newline characters from the line
@@ -20,10 +21,10 @@ def send_gcode(file_path, com_port):
             # Send the line over the serial connection
             ser.write((line + '\n').encode())
 
-            # Wait for the response from the device
-            time.sleep(0.1)
-            response = ser.readline().decode().strip()
-            print(response)
+            counter += 1
+            if counter == 190:
+                counter = 0
+                time.sleep(2)
 
     # Close the serial connection
     ser.close()
