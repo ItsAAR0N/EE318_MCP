@@ -16,8 +16,8 @@ Aaron Shek, @ 2023 University of Strathclyde
 #define STEP_PIN BIT3 // 1000000
 #define DIR_PIN BIT6 // 0100000
 #define LED_PIN BIT0 // 0000000
-#define STEP_PIN_2 BIT4 // 0001000
-#define DIR_PIN_2 BIT3 // 0000100
+#define STEP_PIN_2 BIT3 // 0001000
+#define DIR_PIN_2 BIT4 // 0000100
 
 // ---- Motor definition ---- 
 #define M1 1
@@ -119,12 +119,12 @@ void initialiseGPIOs_()
   GPIO_enableInterrupt(GPIO_PORT_P2, GPIO_PIN6); 
   
   // Configure MS1 uStepping resolution LED1/5 and MSn pins
-  P8DIR |= 0x01; 
+  //P8DIR |= 0x01; 
   P2DIR |= 0x80;
   
   // SG90
-  P1DIR |= BIT6;                                                // P8.3 output
-  P1SEL0 |= BIT6;                                               // P8.3 options select
+  //P1DIR |= BIT6;                                                // P8.3 output
+  //P1SEL0 |= BIT6;                                               // P8.3 options select
   
   // USCI_A0 UART operation
   P1SEL0 |= BIT0 | BIT1;

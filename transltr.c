@@ -678,7 +678,17 @@ void target()
 }
 void Star_()
 {
-
+  MoveTo_(128.782807, 203.172129);
+  MoveTo_(82.000352, 179.620859);
+  MoveTo_(36.077709, 204.807569);
+  MoveTo_(44.019721, 153.037068);
+  MoveTo_(5.874853, 117.145152);
+  MoveTo_(57.565742, 108.700512);
+  MoveTo_(79.913563, 61.331369);
+  MoveTo_(103.918275, 107.882792);
+  MoveTo_(155.874853, 114.498962);
+  MoveTo_(119.019695, 151.713960);
+  MoveTo_(128.782807, 203.172129);
 }
 
 void Spiral_()
@@ -701,29 +711,7 @@ void UoS_()
 
 }
 
-void Square_() 
-{
-  for (int i = 0; i <= 200; i++) 
-  {
-    MoveTo_(i,0);
-    
-  }
-  delay_us(1000000);
-  for (int i = 0; i <= 50; i++) 
-  {
-    MoveTo_(200,i); 
-  }  
-  delay_us(1000000);
-  for (int i = 200; i >= 0; i--) 
-  {
-    MoveTo_(i,50); 
-  }  
-  delay_us(1000000);
-  for (int i = 50; i >= 0; i--) 
-  {
-    MoveTo_(0,i); 
-  }    
-}
+
 
 void HilbertCurve_() 
 {

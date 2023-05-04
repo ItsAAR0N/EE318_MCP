@@ -20,10 +20,10 @@ Aaron Shek, @ 2023 University of Strathclyde
 #define M1 1
 #define M2 2
 #define RADTODEG 57.2958        // 1 Rad = 57.3 degrees
-#define STEP_PIN BIT7           // Motor 1
+#define STEP_PIN BIT3           // Motor 1
 #define DIR_PIN BIT6
-#define STEP_PIN_2 BIT4         // Motor 2
-#define DIR_PIN_2 BIT3
+#define STEP_PIN_2 BIT3         // Motor 2
+#define DIR_PIN_2 BIT4
 
 unsigned int dir = 1;
 float dist_1, ang_1, dist_2, ang_2;
@@ -95,6 +95,30 @@ void __attribute__ ((interrupt(USCI_A0_VECTOR))) USCI_A0_ISR (void)
   }
 }
 
+void Square_() 
+{
+  for (int i = 0; i <= 200; i++) 
+  {
+    MoveTo_(i,0);
+
+  }
+  delay_us(1000000);
+  for (int i = 0; i <= 100; i++) 
+  {
+    MoveTo_(200,i); 
+  }  
+  delay_us(1000000);
+  for (int i = 200; i >= 50; i--) 
+  {
+    MoveTo_(i,100); 
+  }  
+  delay_us(1000000);
+  for (int i = 100; i >= 0; i--) 
+  {
+    MoveTo_(50,i); 
+  }    
+}
+
 void main(void)
 { 
   WDTCTL = WDTPW | WDTHOLD;
@@ -131,7 +155,7 @@ void main(void)
   
   // ---- Test scenarios
   delay_us(5000000);
-  // Square_();
+  HilbertCurve_();
   //for (int i = 0; i <= 100; i++) {
   //  MoveTo_(i,i);
   //}
